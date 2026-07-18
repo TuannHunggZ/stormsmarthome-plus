@@ -18,6 +18,8 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.storm.iotdata.models.StormConfig;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
@@ -32,49 +34,56 @@ public class Spout_data extends BaseRichSpout {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Spout_data.class);
 
-	private static final String DEFAULT_BROKER_URI = "tcp://localhost:1883";
-	private static final String DEFAULT_TOPIC = "iot-data";
-	private static final int DEFAULT_QOS = 0;
-	private static final int DEFAULT_CONNECTION_TIMEOUT_SECONDS = 10;
-	private static final int PROPERTY_LOAD = 1;
-	private static final int MAX_EMIT_PER_NEXT_TUPLE = 100;
-	private static final int QUEUE_CAPACITY = 10_000;
-	private static final String STREAM_ID_DATA = "data";
-	private static final String FIELD_ID = "id";
-	private static final String FIELD_TIMESTAMP = "timestamp";
-	private static final String FIELD_VALUE = "value";
-	private static final String FIELD_PLUG_ID = "plugId";
-	private static final String FIELD_HOUSEHOLD_ID = "householdId";
-	private static final String FIELD_HOUSE_ID = "houseId";
-
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
 	private final String brokerUri;
 	private final String topic;
 	private final int qos;
+	private final int maxEmitPerNextTuple;
+	private final int queueCapacity;
+	private final String streamIdData;
+	private final String fieldId;
+	private final String fieldTimestamp;
+	private final String fieldValue;
+	private final String fieldPlugId;
+	private final String fieldHouseholdId;
+	private final String fieldHouseId;
+	private final int propertyLoad;
+	private final int connectionTimeoutSeconds;
 
 	private transient SpoutOutputCollector collector;
 	private transient MqttClient mqttClient;
-	private final BlockingQueue<LoadEvent> eventQueue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
+	private final BlockingQueue<LoadEvent> eventQueue;
 
 	/**
 	 * Creates a spout with the default broker URI and topic.
 	 */
 	public Spout_data() {
-		this(DEFAULT_BROKER_URI, DEFAULT_TOPIC, DEFAULT_QOS);
+		this(new StormConfig());
 	}
 
 	/**
-	 * Creates a spout with custom MQTT connection settings.
+	 * Creates a spout from the loaded Storm configuration.
 	 *
-	 * @param brokerUri MQTT broker URI.
-	 * @param topic MQTT topic to subscribe to.
-	 * @param qos MQTT QoS level.
+	 * @param stormConfig Loaded Storm configuration.
 	 */
-	public Spout_data(String brokerUri, String topic, int qos) {
-		this.brokerUri = brokerUri;
-		this.topic = topic;
-		this.qos = qos;
+	public Spout_data(StormConfig stormConfig) {
+		StormConfig.SpoutDataConfig spoutDataConfig = stormConfig.getSpoutDataConfig();
+		this.brokerUri = spoutDataConfig.getBrokerUri();
+		this.topic = spoutDataConfig.getBrokerTopic();
+		this.qos = spoutDataConfig.getQos();
+		this.maxEmitPerNextTuple = spoutDataConfig.getMaxEmitPerNextTuple();
+		this.queueCapacity = spoutDataConfig.getQueueCapacity();
+		this.streamIdData = spoutDataConfig.getStreamIdData();
+		this.fieldId = spoutDataConfig.getFieldId();
+		this.fieldTimestamp = spoutDataConfig.getFieldTimestamp();
+		this.fieldValue = spoutDataConfig.getFieldValue();
+		this.fieldPlugId = spoutDataConfig.getFieldPlugId();
+		this.fieldHouseholdId = spoutDataConfig.getFieldHouseholdId();
+		this.fieldHouseId = spoutDataConfig.getFieldHouseId();
+		this.propertyLoad = spoutDataConfig.getPropertyLoad();
+		this.connectionTimeoutSeconds = spoutDataConfig.getConnectionTimeoutSeconds();
+		this.eventQueue = new LinkedBlockingQueue<>(this.queueCapacity);
 	}
 
 	/**
@@ -97,14 +106,14 @@ public class Spout_data extends BaseRichSpout {
 	public void nextTuple() {
 		int emitted = 0;
 
-		while (emitted < MAX_EMIT_PER_NEXT_TUPLE) {
+		while (emitted < maxEmitPerNextTuple) {
 			LoadEvent event = eventQueue.poll();
 			if (event == null) {
 				break;
 			}
 
 			collector.emit(
-				STREAM_ID_DATA,
+				streamIdData,
 				new Values(
 					event.id,
 					event.timestamp,
@@ -131,14 +140,14 @@ public class Spout_data extends BaseRichSpout {
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
 		declarer.declareStream(
-			STREAM_ID_DATA,
+			streamIdData,
 			new Fields(
-				FIELD_ID,
-				FIELD_TIMESTAMP,
-				FIELD_VALUE,
-				FIELD_PLUG_ID,
-				FIELD_HOUSEHOLD_ID,
-				FIELD_HOUSE_ID
+				fieldId,
+				fieldTimestamp,
+				fieldValue,
+				fieldPlugId,
+				fieldHouseholdId,
+				fieldHouseId
 			)
 		);
 	}
@@ -194,7 +203,7 @@ public class Spout_data extends BaseRichSpout {
 			MqttConnectOptions connectOptions = new MqttConnectOptions();
 			connectOptions.setAutomaticReconnect(true);
 			connectOptions.setCleanSession(true);
-			connectOptions.setConnectionTimeout(DEFAULT_CONNECTION_TIMEOUT_SECONDS);
+			connectOptions.setConnectionTimeout(connectionTimeoutSeconds);
 
 			mqttClient.setCallback(new MqttCallbackExtended() {
 				@Override
@@ -268,7 +277,7 @@ public class Spout_data extends BaseRichSpout {
 		}
 
 		int property = getRequiredInt(root, "property");
-		if (property != PROPERTY_LOAD) {
+		if (property != propertyLoad) {
 			return null;
 		}
 

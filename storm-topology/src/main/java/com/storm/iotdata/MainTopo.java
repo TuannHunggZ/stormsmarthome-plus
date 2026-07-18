@@ -4,14 +4,17 @@ import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.topology.TopologyBuilder;
 
+import com.storm.iotdata.models.StormConfig;
 import com.storm.iotdata.storm.*;
 
 public class MainTopo {
 
     public static void main(String[] args) throws Exception {
+        StormConfig stormConfig = new StormConfig();
+
         TopologyBuilder builder = new TopologyBuilder();
 
-        builder.setSpout("spout-data", new Spout_data(), 1);
+        builder.setSpout("spout-data", new Spout_data(stormConfig), 1);
 
         Config config = new Config();
         config.setDebug(true);
