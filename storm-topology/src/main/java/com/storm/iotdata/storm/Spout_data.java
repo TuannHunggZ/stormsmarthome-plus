@@ -21,6 +21,10 @@ import org.slf4j.LoggerFactory;
 import com.storm.iotdata.models.StormConfig;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -33,6 +37,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class Spout_data extends BaseRichSpout {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Spout_data.class);
+	private static final String FIELD_WINDOW_SIZE = "windowSize";
+	private static final String FIELD_SLICE_INDEX = "sliceIndex";
 
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -50,10 +56,13 @@ public class Spout_data extends BaseRichSpout {
 	private final String fieldHouseId;
 	private final int propertyLoad;
 	private final int connectionTimeoutSeconds;
+	private final List<Integer> timeSliceMinutes;
+	private final Map<Integer, String> punctuationStreamIds;
 
 	private transient SpoutOutputCollector collector;
 	private transient MqttClient mqttClient;
-	private final BlockingQueue<LoadEvent> eventQueue;
+	private final BlockingQueue<StreamEvent> eventQueue;
+	private long lastObservedTimestampSeconds = Long.MIN_VALUE;
 
 	/**
 	 * Creates a spout with the default broker URI and topic.
@@ -69,6 +78,8 @@ public class Spout_data extends BaseRichSpout {
 	 */
 	public Spout_data(StormConfig stormConfig) {
 		StormConfig.SpoutDataConfig spoutDataConfig = stormConfig.getSpoutDataConfig();
+		this.timeSliceMinutes = stormConfig.getTimeSlicesMinutes();
+		this.punctuationStreamIds = buildPunctuationStreamIds(this.timeSliceMinutes);
 		this.brokerUri = spoutDataConfig.getBrokerUri();
 		this.topic = spoutDataConfig.getBrokerTopic();
 		this.qos = spoutDataConfig.getQos();
@@ -107,23 +118,16 @@ public class Spout_data extends BaseRichSpout {
 		int emitted = 0;
 
 		while (emitted < maxEmitPerNextTuple) {
-			LoadEvent event = eventQueue.poll();
+			StreamEvent event = eventQueue.poll();
 			if (event == null) {
 				break;
 			}
 
-			collector.emit(
-				streamIdData,
-				new Values(
-					event.id,
-					event.timestamp,
-					event.value,
-					event.plugId,
-					event.householdId,
-					event.houseId
-				),
-				event.id
-			);
+			if (event instanceof DataEvent) {
+				emitDataEvent((DataEvent) event);
+			} else if (event instanceof PunctuationEvent) {
+				emitPunctuationEvent((PunctuationEvent) event);
+			}
 			emitted += 1;
 		}
 
@@ -150,6 +154,13 @@ public class Spout_data extends BaseRichSpout {
 				fieldHouseId
 			)
 		);
+
+		for (Integer timeSlice : timeSliceMinutes) {
+			declarer.declareStream(
+				punctuationStreamIds.get(timeSlice),
+				new Fields(FIELD_WINDOW_SIZE, FIELD_SLICE_INDEX)
+			);
+		}
 	}
 
 	/**
@@ -262,9 +273,13 @@ public class Spout_data extends BaseRichSpout {
 				return;
 			}
 
-			boolean enqueued = eventQueue.offer(event);
-			if (!enqueued) {
-				LOGGER.warn("Event queue is full, dropping message from topic {}", incomingTopic);
+			List<StreamEvent> streamEvents = buildStreamEvents(event);
+			for (StreamEvent streamEvent : streamEvents) {
+				boolean enqueued = eventQueue.offer(streamEvent);
+				if (!enqueued) {
+					LOGGER.warn("Event queue is full, dropping message from topic {}", incomingTopic);
+					return;
+				}
 			}
 		} catch (Exception exception) {
 			LOGGER.error("Failed to parse MQTT JSON payload from topic {}", incomingTopic, exception);
@@ -289,6 +304,82 @@ public class Spout_data extends BaseRichSpout {
 			getRequiredInt(root, "household_id"),
 			getRequiredInt(root, "house_id")
 		);
+	}
+
+	private List<StreamEvent> buildStreamEvents(LoadEvent event) {
+		List<StreamEvent> streamEvents = new ArrayList<>();
+
+		if (lastObservedTimestampSeconds != Long.MIN_VALUE && event.timestamp > lastObservedTimestampSeconds) {
+			streamEvents.addAll(buildPunctuationEvents(lastObservedTimestampSeconds, event.timestamp));
+		}
+
+		streamEvents.add(new DataEvent(event));
+		lastObservedTimestampSeconds = event.timestamp;
+
+		return streamEvents;
+	}
+
+	private List<StreamEvent> buildPunctuationEvents(long previousTimestampSeconds, long currentTimestampSeconds) {
+		List<StreamEvent> streamEvents = new ArrayList<>();
+
+		for (Integer timeSliceMinutesValue : timeSliceMinutes) {
+			long windowSizeSeconds = timeSliceMinutesValue * 60L;
+			long previousSliceIndex = previousTimestampSeconds / windowSizeSeconds;
+			long currentSliceIndex = currentTimestampSeconds / windowSizeSeconds;
+
+			if (currentSliceIndex <= previousSliceIndex) {
+				continue;
+			}
+
+			for (long sliceIndex = previousSliceIndex; sliceIndex < currentSliceIndex; sliceIndex += 1) {
+				LOGGER.info(
+					"Generated punctuation: window={}m sliceIndex={}",
+					timeSliceMinutesValue,
+					sliceIndex
+				);
+
+				streamEvents.add(new PunctuationEvent(timeSliceMinutesValue, sliceIndex));
+			}
+		}
+
+		return streamEvents;
+	}
+
+	private void emitDataEvent(DataEvent event) {
+		collector.emit(
+			streamIdData,
+			new Values(
+				event.loadEvent.id,
+				event.loadEvent.timestamp,
+				event.loadEvent.value,
+				event.loadEvent.plugId,
+				event.loadEvent.householdId,
+				event.loadEvent.houseId
+			),
+			event.loadEvent.id
+		);
+	}
+
+	private void emitPunctuationEvent(PunctuationEvent event) {
+		String punctuationStreamId = punctuationStreamIds.get(event.windowSizeMinutes);
+		collector.emit(
+			punctuationStreamId,
+			new Values(event.windowSizeMinutes, event.sliceIndex),
+			punctuationStreamId + "-" + event.sliceIndex
+		);
+		LOGGER.info(
+			"Emitted punctuation: window={}m sliceIndex={}",
+			event.windowSizeMinutes,
+			event.sliceIndex
+		);
+	}
+
+	private Map<Integer, String> buildPunctuationStreamIds(List<Integer> slices) {
+		Map<Integer, String> streamIds = new HashMap<>();
+		for (Integer timeSlice : slices) {
+			streamIds.put(timeSlice, "punctuation-" + timeSlice + "m");
+		}
+		return Collections.unmodifiableMap(streamIds);
 	}
 
 	private int getRequiredInt(JsonNode root, String fieldName) {
@@ -316,13 +407,36 @@ public class Spout_data extends BaseRichSpout {
 	private double getRequiredDouble(JsonNode root, String fieldName) {
 		JsonNode node = root.get(fieldName);
 		if (node == null) {
-        	throw new IllegalArgumentException("Missing field: " + fieldName);
+			throw new IllegalArgumentException("Missing field: " + fieldName);
 		}
 
 		try {
 			return Double.parseDouble(node.asText());
 		} catch (NumberFormatException e) {
 			throw new IllegalArgumentException("Invalid double field: " + fieldName, e);
+		}
+	}
+
+	private interface StreamEvent {
+	}
+
+	private static final class DataEvent implements StreamEvent {
+
+		private final LoadEvent loadEvent;
+
+		private DataEvent(LoadEvent loadEvent) {
+			this.loadEvent = loadEvent;
+		}
+	}
+
+	private static final class PunctuationEvent implements StreamEvent {
+
+		private final int windowSizeMinutes;
+		private final long sliceIndex;
+
+		private PunctuationEvent(int windowSizeMinutes, long sliceIndex) {
+			this.windowSizeMinutes = windowSizeMinutes;
+			this.sliceIndex = sliceIndex;
 		}
 	}
 

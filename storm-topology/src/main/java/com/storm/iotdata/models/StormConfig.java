@@ -4,14 +4,18 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.InputStream;
 import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class StormConfig {
     private static final String DEFAULT_CONFIG_RESOURCE = "config/conf.yaml";
-    private static final String SP_OUT_DATA_SECTION = "spout-data";
+    private static final String TIME_SLICES_KEY = "timeslices";
+    private static final String SPOUT_DATA_SECTION = "spout-data";
     private static final String DEFAULT_BROKER_URL = "tcp://mqtt-broker:1883";
     private static final String DEFAULT_BROKER_TOPIC = "iotdata";
 
+    private final List<Integer> timeSlicesMinutes;
     private final Map<String, Object> spoutDataConfig;
 
     public StormConfig() {
@@ -19,11 +23,16 @@ public class StormConfig {
     }
 
     private StormConfig(Map<String, Object> config) {
-        this.spoutDataConfig = readSection(config, SP_OUT_DATA_SECTION);
+        this.timeSlicesMinutes = readIntegerList(config, TIME_SLICES_KEY);
+        this.spoutDataConfig = readSection(config, SPOUT_DATA_SECTION);
     }
 
     public SpoutDataConfig getSpoutDataConfig() {
         return new SpoutDataConfig(spoutDataConfig);
+    }
+
+    public List<Integer> getTimeSlicesMinutes() {
+        return timeSlicesMinutes;
     }
 
     @SuppressWarnings("unchecked")
@@ -85,6 +94,47 @@ public class StormConfig {
         } catch (NumberFormatException exception) {
             throw new IllegalStateException("Invalid integer config value for key: " + key, exception);
         }
+    }
+
+    private static List<Integer> readIntegerList(Map<String, Object> config, String key) {
+        Object value = config.get(key);
+        if (value == null) {
+            throw new IllegalStateException("Missing config list: " + key);
+        }
+
+        if (!(value instanceof Iterable)) {
+            throw new IllegalStateException("Invalid config list for key: " + key);
+        }
+
+        List<Integer> result = new ArrayList<>();
+        for (Object element : (Iterable<?>) value) {
+            try {
+                int parsed = Integer.parseInt(element.toString().trim());
+                if (parsed <= 0) {
+                    throw new IllegalStateException("Config list values must be positive: " + key);
+                }
+                result.add(parsed);
+            } catch (NumberFormatException exception) {
+                throw new IllegalStateException("Invalid integer in config list: " + key, exception);
+            }
+        }
+
+        if (result.isEmpty()) {
+            throw new IllegalStateException("Config list must not be empty: " + key);
+        }
+
+        Collections.sort(result);
+
+        List<Integer> deduplicated = new ArrayList<>();
+        Integer previous = null;
+        for (Integer slice : result) {
+            if (!slice.equals(previous)) {
+                deduplicated.add(slice);
+                previous = slice;
+            }
+        }
+
+        return Collections.unmodifiableList(deduplicated);
     }
 
     public static final class SpoutDataConfig {

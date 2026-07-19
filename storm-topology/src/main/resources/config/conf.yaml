@@ -1,45 +1,64 @@
 # Shared Storm configuration.
 # Add new sections here for other spouts or bolts as the topology grows.
 
+# Time slices, in minutes, used by punctuation generation across the topology.
+timeslices:
+  # 1-minute punctuation window.
+  - 1
+  # 5-minute punctuation window.
+  - 5
+  # 10-minute punctuation window.
+  - 10
+  # 15-minute punctuation window.
+  - 15
+  # 20-minute punctuation window.
+  - 20
+  # 30-minute punctuation window.
+  - 30
+  # 60-minute punctuation window.
+  - 60
+  # 120-minute punctuation window.
+  - 120
+
 spout-data:
-	# MQTT broker URI that the spout connects to.
-	broker-uri: "tcp://localhost:1883"
+  # MQTT broker URI that the spout connects to.
+  broker-uri: "tcp://localhost:1883"
 
-	# MQTT topic consumed by the spout.
-	broker-topic: "iotdata"
+  # MQTT topic consumed by the spout.
+  broker-topic: "iotdata"
 
-	# MQTT subscription QoS used by the spout.
-	qos: 0
+  # MQTT subscription QoS used by the spout.
+  qos: 0
 
-	# Maximum number of parsed events emitted by one nextTuple() call.
-	max-emit-per-next-tuple: 100
+  # Maximum number of stream events emitted by one nextTuple() call.
+  max-emit-per-next-tuple: 100
 
-	# Maximum number of events buffered before new messages are dropped.
-	queue-capacity: 10000
+  # Maximum number of stream events buffered before new messages are dropped.
+  queue-capacity: 10000
 
-	# Storm stream id used when emitting tuples.
-	stream-id-data: "data"
+  # Storm stream id used for data tuples.
+  stream-id-data: "data"
 
-	# MQTT property value that identifies a load event.
-	property-load: 1
+  # MQTT property value that identifies a load event.
+  property-load: 1
 
-	# MQTT connection timeout in seconds.
-	connection-timeout-seconds: 10
+  # MQTT connection timeout in seconds.
+  connection-timeout-seconds: 10
 
-	# Output field name for the event id.
-	field-id: "id"
+  # Output field name for the event id.
+  field-id: "id"
 
-	# Output field name for the event timestamp.
-	field-timestamp: "timestamp"
+  # Output field name for the event timestamp.
+  field-timestamp: "timestamp"
 
-	# Output field name for the event value.
-	field-value: "value"
+  # Output field name for the event value.
+  field-value: "value"
 
-	# Output field name for the plug identifier.
-	field-plug-id: "plugId"
+  # Output field name for the plug identifier.
+  field-plug-id: "plugId"
 
-	# Output field name for the household identifier.
-	field-household-id: "householdId"
+  # Output field name for the household identifier.
+  field-household-id: "householdId"
 
-	# Output field name for the house identifier.
-	field-house-id: "houseId"
+  # Output field name for the house identifier.
+  field-house-id: "houseId"
