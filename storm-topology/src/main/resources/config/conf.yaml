@@ -62,3 +62,9 @@ spout-data:
 
   # Output field name for the house identifier.
   field-house-id: "houseId"
+
+  # Output field name for the punctuation window size.
+  field-window-size: "windowSize"
+
+  # Output field name for the punctuation slice index.
+  field-slice-index: "sliceIndex"

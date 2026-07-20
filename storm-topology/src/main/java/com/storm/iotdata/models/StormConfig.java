@@ -2,6 +2,8 @@ package com.storm.iotdata.models;
 
 import org.yaml.snakeyaml.Yaml;
 
+import com.storm.iotdata.models.StormConfig.SpoutDataConfig;
+
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.ArrayList;
@@ -16,7 +18,7 @@ public class StormConfig {
     private static final String DEFAULT_BROKER_TOPIC = "iotdata";
 
     private final List<Integer> timeSlicesMinutes;
-    private final Map<String, Object> spoutDataConfig;
+    private final SpoutDataConfig spoutDataConfig;
 
     public StormConfig() {
         this(loadConfigMap());
@@ -24,11 +26,13 @@ public class StormConfig {
 
     private StormConfig(Map<String, Object> config) {
         this.timeSlicesMinutes = readIntegerList(config, TIME_SLICES_KEY);
-        this.spoutDataConfig = readSection(config, SPOUT_DATA_SECTION);
+        this.spoutDataConfig = new SpoutDataConfig(
+            readSection(config, SPOUT_DATA_SECTION)
+        );
     }
 
     public SpoutDataConfig getSpoutDataConfig() {
-        return new SpoutDataConfig(spoutDataConfig);
+        return spoutDataConfig;
     }
 
     public List<Integer> getTimeSlicesMinutes() {
@@ -153,6 +157,8 @@ public class StormConfig {
         private final String fieldPlugId;
         private final String fieldHouseholdId;
         private final String fieldHouseId;
+        private final String fieldWindowSize;
+        private final String fieldSliceIndex;
 
         private SpoutDataConfig(Map<String, Object> config) {
             this.brokerUri = readString(config, "broker-uri", DEFAULT_BROKER_URL);
@@ -169,6 +175,8 @@ public class StormConfig {
             this.fieldPlugId = readString(config, "field-plug-id", "plugId");
             this.fieldHouseholdId = readString(config, "field-household-id", "householdId");
             this.fieldHouseId = readString(config, "field-house-id", "houseId");
+            this.fieldWindowSize = readString(config, "field-window-size", "windowSize");
+            this.fieldSliceIndex = readString(config, "field-slice-index", "sliceIndex");
         }
 
         public String getBrokerUri() {
@@ -225,6 +233,14 @@ public class StormConfig {
 
         public String getFieldHouseId() {
             return fieldHouseId;
+        }
+
+        public String getFieldWindowSize() {
+            return fieldWindowSize;
+        }
+
+        public String getFieldSliceIndex() {
+            return fieldSliceIndex;
         }
     }
 }

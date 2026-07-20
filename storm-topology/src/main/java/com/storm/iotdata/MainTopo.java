@@ -14,7 +14,7 @@ public class MainTopo {
 
         TopologyBuilder builder = new TopologyBuilder();
 
-        builder.setSpout("spout-data", new Spout_data(stormConfig), 1);
+        builder.setSpout("spout-data", new Spout_data(stormConfig.getSpoutDataConfig(), stormConfig.getTimeSlicesMinutes()), 1);
 
         Config config = new Config();
         config.setDebug(true);

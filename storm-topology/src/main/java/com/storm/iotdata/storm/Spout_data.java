@@ -37,8 +37,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class Spout_data extends BaseRichSpout {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Spout_data.class);
-	private static final String FIELD_WINDOW_SIZE = "windowSize";
-	private static final String FIELD_SLICE_INDEX = "sliceIndex";
 
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -54,6 +52,8 @@ public class Spout_data extends BaseRichSpout {
 	private final String fieldPlugId;
 	private final String fieldHouseholdId;
 	private final String fieldHouseId;
+	private final String fieldWindowSize;
+	private final String fieldSliceIndex;
 	private final int propertyLoad;
 	private final int connectionTimeoutSeconds;
 	private final List<Integer> timeSliceMinutes;
@@ -65,20 +65,13 @@ public class Spout_data extends BaseRichSpout {
 	private long lastObservedTimestampSeconds = Long.MIN_VALUE;
 
 	/**
-	 * Creates a spout with the default broker URI and topic.
-	 */
-	public Spout_data() {
-		this(new StormConfig());
-	}
-
-	/**
 	 * Creates a spout from the loaded Storm configuration.
 	 *
-	 * @param stormConfig Loaded Storm configuration.
+	 * @param spoutDataConfig Loaded spout data configuration.
+	 * @param timeSliceMinutes List of time slice minutes.
 	 */
-	public Spout_data(StormConfig stormConfig) {
-		StormConfig.SpoutDataConfig spoutDataConfig = stormConfig.getSpoutDataConfig();
-		this.timeSliceMinutes = stormConfig.getTimeSlicesMinutes();
+	public Spout_data(StormConfig.SpoutDataConfig spoutDataConfig, List<Integer> timeSliceMinutes) {
+		this.timeSliceMinutes = timeSliceMinutes;
 		this.punctuationStreamIds = buildPunctuationStreamIds(this.timeSliceMinutes);
 		this.brokerUri = spoutDataConfig.getBrokerUri();
 		this.topic = spoutDataConfig.getBrokerTopic();
@@ -92,6 +85,8 @@ public class Spout_data extends BaseRichSpout {
 		this.fieldPlugId = spoutDataConfig.getFieldPlugId();
 		this.fieldHouseholdId = spoutDataConfig.getFieldHouseholdId();
 		this.fieldHouseId = spoutDataConfig.getFieldHouseId();
+		this.fieldWindowSize = spoutDataConfig.getFieldWindowSize();
+		this.fieldSliceIndex = spoutDataConfig.getFieldSliceIndex();
 		this.propertyLoad = spoutDataConfig.getPropertyLoad();
 		this.connectionTimeoutSeconds = spoutDataConfig.getConnectionTimeoutSeconds();
 		this.eventQueue = new LinkedBlockingQueue<>(this.queueCapacity);
@@ -159,7 +154,7 @@ public class Spout_data extends BaseRichSpout {
 		for (Integer timeSlice : timeSliceMinutes) {
 			declarer.declareStream(
 				punctuationStreamIds.get(timeSlice),
-				new Fields(FIELD_WINDOW_SIZE, FIELD_SLICE_INDEX)
+				new Fields(fieldWindowSize, fieldSliceIndex)
 			);
 		}
 	}
