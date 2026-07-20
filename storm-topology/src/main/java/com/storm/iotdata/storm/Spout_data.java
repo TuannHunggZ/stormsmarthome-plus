@@ -111,7 +111,8 @@ public class Spout_data extends BaseRichSpout {
 	}
 
 	/**
-	 * Drains a bounded number of parsed MQTT events from the queue and emits them to the data stream.
+	 * Drains a bounded number of stream events from the queue
+	 * and emits them into the appropriate Storm streams.
 	 */
 	@Override
 	public void nextTuple() {
@@ -123,8 +124,8 @@ public class Spout_data extends BaseRichSpout {
 				break;
 			}
 
-			if (event instanceof DataEvent) {
-				emitDataEvent((DataEvent) event);
+			if (event instanceof LoadEvent) {
+				emitDataEvent((LoadEvent) event);
 			} else if (event instanceof PunctuationEvent) {
 				emitPunctuationEvent((PunctuationEvent) event);
 			}
@@ -306,6 +307,10 @@ public class Spout_data extends BaseRichSpout {
 		);
 	}
 
+	/**
+	 * Builds the sequence of stream events for a load measurement.
+	 * Generates any required punctuation events before the load event.
+	 */
 	private List<StreamEvent> buildStreamEvents(LoadEvent event) {
 		List<StreamEvent> streamEvents = new ArrayList<>();
 
@@ -313,12 +318,16 @@ public class Spout_data extends BaseRichSpout {
 			streamEvents.addAll(buildPunctuationEvents(lastObservedTimestampSeconds, event.timestamp));
 		}
 
-		streamEvents.add(new DataEvent(event));
+		streamEvents.add(event);
 		lastObservedTimestampSeconds = event.timestamp;
 
 		return streamEvents;
 	}
 
+	/**
+	 * Generates punctuation events for every completed time slice
+	 * between two consecutive load event timestamps.
+	 */
 	private List<StreamEvent> buildPunctuationEvents(long previousTimestampSeconds, long currentTimestampSeconds) {
 		List<StreamEvent> streamEvents = new ArrayList<>();
 
@@ -345,18 +354,18 @@ public class Spout_data extends BaseRichSpout {
 		return streamEvents;
 	}
 
-	private void emitDataEvent(DataEvent event) {
+	private void emitDataEvent(LoadEvent event) {
 		collector.emit(
 			streamIdData,
 			new Values(
-				event.loadEvent.id,
-				event.loadEvent.timestamp,
-				event.loadEvent.value,
-				event.loadEvent.plugId,
-				event.loadEvent.householdId,
-				event.loadEvent.houseId
+				event.id,
+				event.timestamp,
+				event.value,
+				event.plugId,
+				event.householdId,
+				event.houseId
 			),
-			event.loadEvent.id
+			event.id
 		);
 	}
 
@@ -417,18 +426,15 @@ public class Spout_data extends BaseRichSpout {
 		}
 	}
 
+	/**
+	 * Marker interface for all events processed by the spout.
+	 */
 	private interface StreamEvent {
 	}
 
-	private static final class DataEvent implements StreamEvent {
-
-		private final LoadEvent loadEvent;
-
-		private DataEvent(LoadEvent loadEvent) {
-			this.loadEvent = loadEvent;
-		}
-	}
-
+	/**
+	 * Control event indicating that a time slice has completed.
+	 */
 	private static final class PunctuationEvent implements StreamEvent {
 
 		private final int windowSizeMinutes;
@@ -441,9 +447,10 @@ public class Spout_data extends BaseRichSpout {
 	}
 
 	/**
-	 * Parsed MQTT event that is ready to be emitted into Storm.
+	 * Parsed load measurement received from MQTT.
+	 * This event is emitted directly into the Storm data stream.
 	 */
-	private static final class LoadEvent {
+	private static final class LoadEvent implements StreamEvent {
 
 		private final long id;
 		private final long timestamp;
