@@ -1,7 +1,7 @@
 package com.storm.iotdata;
 
 import org.apache.storm.Config;
-import org.apache.storm.LocalCluster;
+import org.apache.storm.StormSubmitter;
 import org.apache.storm.topology.TopologyBuilder;
 
 import com.storm.iotdata.models.StormConfig;
@@ -18,19 +18,8 @@ public class MainTopo {
 
         Config config = new Config();
         config.setDebug(true);
+        config.setNumWorkers(4);
 
-        LocalCluster cluster = new LocalCluster();
-
-        try {
-            cluster.submitTopology(
-                "iot-smarthome",
-                config,
-                builder.createTopology()
-            );
-
-            Thread.sleep(10000);
-        } finally {
-            cluster.close();
-        }
+        StormSubmitter.submitTopology("iot-smarthome", config, builder.createTopology());
     }
 }

@@ -22,7 +22,7 @@ timeslices:
 
 spout-data:
   # MQTT broker URI that the spout connects to.
-  broker-uri: "tcp://localhost:1883"
+  broker-uri: "tcp://mqtt-broker:1883"
 
   # MQTT topic consumed by the spout.
   broker-topic: "iotdata"
