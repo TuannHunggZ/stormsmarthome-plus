@@ -2,8 +2,6 @@ package com.storm.iotdata.models;
 
 import org.yaml.snakeyaml.Yaml;
 
-import com.storm.iotdata.models.StormConfig.SpoutDataConfig;
-
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.ArrayList;
