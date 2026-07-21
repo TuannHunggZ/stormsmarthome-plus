@@ -12,11 +12,11 @@ public class StormConfig {
     private static final String DEFAULT_CONFIG_RESOURCE = "config/conf.yaml";
     private static final String TIME_SLICES_KEY = "timeslices";
     private static final String SPOUT_DATA_SECTION = "spout-data";
-    private static final String BOLT_CURRENT_PLUG_AVERAGE_SECTION = "bolt-current-plug-average";
+    private static final String BOLT_AVG_SECTION = "bolt-avg";
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
-    private final BoltCurrentPlugAverageConfig boltCurrentPlugAverageConfig;
+    private final BoltAvgConfig boltAvgConfig;
 
     public StormConfig() {
         this(loadConfigMap());
@@ -27,8 +27,8 @@ public class StormConfig {
         this.spoutDataConfig = new SpoutDataConfig(
             readSection(config, SPOUT_DATA_SECTION)
         );
-        this.boltCurrentPlugAverageConfig = new BoltCurrentPlugAverageConfig(
-            readSection(config, BOLT_CURRENT_PLUG_AVERAGE_SECTION)
+        this.boltAvgConfig = new BoltAvgConfig(
+            readSection(config, BOLT_AVG_SECTION)
         );
     }
 
@@ -40,8 +40,8 @@ public class StormConfig {
         return timeSlicesMinutes;
     }
 
-    public BoltCurrentPlugAverageConfig getBoltCurrentPlugAverageConfig() {
-        return boltCurrentPlugAverageConfig;
+    public BoltAvgConfig getBoltAvgConfig() {
+        return boltAvgConfig;
     }
 
     @SuppressWarnings("unchecked")
@@ -249,7 +249,7 @@ public class StormConfig {
         }
     }
 
-    public static final class BoltCurrentPlugAverageConfig {
+    public static final class BoltAvgConfig {
 
         private final String inputStreamData;
         private final String inputFieldValue;
@@ -258,6 +258,8 @@ public class StormConfig {
         private final String inputFieldHouseId;
         private final String inputFieldWindowSize;
         private final String inputFieldSliceIndex;
+        private final String outputPlugStreamId;
+        private final String outputHouseStreamId;
         private final String outputFieldWindowSize;
         private final String outputFieldSliceIndex;
         private final String outputFieldHouseId;
@@ -265,7 +267,7 @@ public class StormConfig {
         private final String outputFieldPlugId;
         private final String outputFieldCurrentAverage;
 
-        private BoltCurrentPlugAverageConfig(Map<String, Object> config) {
+        private BoltAvgConfig(Map<String, Object> config) {
             this.inputStreamData = readString(config, "input-stream-data", "data");
             this.inputFieldValue = readString(config, "input-field-value", "value");
             this.inputFieldPlugId = readString(config, "input-field-plug-id", "plugId");
@@ -273,6 +275,8 @@ public class StormConfig {
             this.inputFieldHouseId = readString(config, "input-field-house-id", "houseId");
             this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
             this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
+            this.outputPlugStreamId = readString(config, "output-plug-stream-id", "current-plug-average");
+            this.outputHouseStreamId = readString(config, "output-house-stream-id", "current-house-average");
             this.outputFieldWindowSize = readString(config, "output-field-window-size", "windowSize");
             this.outputFieldSliceIndex = readString(config, "output-field-slice-index", "sliceIndex");
             this.outputFieldHouseId = readString(config, "output-field-house-id", "houseId");
@@ -307,6 +311,14 @@ public class StormConfig {
 
         public String getInputFieldSliceIndex() {
             return inputFieldSliceIndex;
+        }
+
+        public String getOutputPlugStreamId() {
+            return outputPlugStreamId;
+        }
+
+        public String getOutputHouseStreamId() {
+            return outputHouseStreamId;
         }
 
         public String getOutputFieldWindowSize() {

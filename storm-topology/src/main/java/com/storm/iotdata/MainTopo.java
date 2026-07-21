@@ -19,17 +19,17 @@ public class MainTopo {
         builder.setSpout("spout-data", new Spout_data(stormConfig.getSpoutDataConfig(), stormConfig.getTimeSlicesMinutes()), 1);
 
         for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
-            String boltId = "bolt-current-plug-average-" + windowSize + "m";
+            String boltId = "bolt-avg-" + windowSize + "m";
             BoltDeclarer boltDeclarer = builder.setBolt(
                 boltId,
-                new Bolt_currentPlugAverage(stormConfig.getBoltCurrentPlugAverageConfig(), windowSize),
+                new Bolt_Avg(stormConfig.getBoltAvgConfig(), windowSize),
                 1
             );
 
             boltDeclarer.fieldsGrouping(
                 "spout-data",
                 "data",
-                new Fields("houseId", "householdId", "plugId")
+                new Fields("houseId")
             );
             boltDeclarer.allGrouping("spout-data", "punctuation-" + windowSize + "m");
         }

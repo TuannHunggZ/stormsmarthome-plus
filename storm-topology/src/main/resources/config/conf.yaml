@@ -69,7 +69,7 @@ spout-data:
   # Output field name for the punctuation slice index.
   field-slice-index: "sliceIndex"
 
-bolt-current-plug-average:
+bolt-avg:
   # Input stream carrying live load events.
   input-stream-data: "data"
 
@@ -90,6 +90,12 @@ bolt-current-plug-average:
 
   # Input field name for the punctuation slice index.
   input-field-slice-index: "sliceIndex"
+
+  # Output stream for current plug averages.
+  output-plug-stream-id: "current-plug-average"
+
+  # Output stream for current house averages.
+  output-house-stream-id: "current-house-average"
 
   # Output field name for the punctuation window size.
   output-field-window-size: "windowSize"
