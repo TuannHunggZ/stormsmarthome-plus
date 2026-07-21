@@ -25,7 +25,7 @@ spout-data:
   broker-uri: "tcp://mqtt-broker:1883"
 
   # MQTT topic consumed by the spout.
-  broker-topic: "iotdata"
+  broker-topic: "iot-data"
 
   # MQTT subscription QoS used by the spout.
   qos: 0
@@ -68,3 +68,43 @@ spout-data:
 
   # Output field name for the punctuation slice index.
   field-slice-index: "sliceIndex"
+
+bolt-current-plug-average:
+  # Input stream carrying live load events.
+  input-stream-data: "data"
+
+  # Input field name for the event value.
+  input-field-value: "value"
+
+  # Input field name for the plug identifier.
+  input-field-plug-id: "plugId"
+
+  # Input field name for the household identifier.
+  input-field-household-id: "householdId"
+
+  # Input field name for the house identifier.
+  input-field-house-id: "houseId"
+
+  # Input field name for the punctuation window size.
+  input-field-window-size: "windowSize"
+
+  # Input field name for the punctuation slice index.
+  input-field-slice-index: "sliceIndex"
+
+  # Output field name for the punctuation window size.
+  output-field-window-size: "windowSize"
+
+  # Output field name for the punctuation slice index.
+  output-field-slice-index: "sliceIndex"
+
+  # Output field name for the house identifier.
+  output-field-house-id: "houseId"
+
+  # Output field name for the household identifier.
+  output-field-household-id: "householdId"
+
+  # Output field name for the plug identifier.
+  output-field-plug-id: "plugId"
+
+  # Output field name for the current average value.
+  output-field-current-average: "currentAverage"

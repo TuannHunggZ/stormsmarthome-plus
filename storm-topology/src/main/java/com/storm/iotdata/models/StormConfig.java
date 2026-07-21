@@ -12,11 +12,11 @@ public class StormConfig {
     private static final String DEFAULT_CONFIG_RESOURCE = "config/conf.yaml";
     private static final String TIME_SLICES_KEY = "timeslices";
     private static final String SPOUT_DATA_SECTION = "spout-data";
-    private static final String DEFAULT_BROKER_URL = "tcp://mqtt-broker:1883";
-    private static final String DEFAULT_BROKER_TOPIC = "iotdata";
+    private static final String BOLT_CURRENT_PLUG_AVERAGE_SECTION = "bolt-current-plug-average";
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
+    private final BoltCurrentPlugAverageConfig boltCurrentPlugAverageConfig;
 
     public StormConfig() {
         this(loadConfigMap());
@@ -27,6 +27,9 @@ public class StormConfig {
         this.spoutDataConfig = new SpoutDataConfig(
             readSection(config, SPOUT_DATA_SECTION)
         );
+        this.boltCurrentPlugAverageConfig = new BoltCurrentPlugAverageConfig(
+            readSection(config, BOLT_CURRENT_PLUG_AVERAGE_SECTION)
+        );
     }
 
     public SpoutDataConfig getSpoutDataConfig() {
@@ -35,6 +38,10 @@ public class StormConfig {
 
     public List<Integer> getTimeSlicesMinutes() {
         return timeSlicesMinutes;
+    }
+
+    public BoltCurrentPlugAverageConfig getBoltCurrentPlugAverageConfig() {
+        return boltCurrentPlugAverageConfig;
     }
 
     @SuppressWarnings("unchecked")
@@ -159,8 +166,8 @@ public class StormConfig {
         private final String fieldSliceIndex;
 
         private SpoutDataConfig(Map<String, Object> config) {
-            this.brokerUri = readString(config, "broker-uri", DEFAULT_BROKER_URL);
-            this.brokerTopic = readString(config, "broker-topic", DEFAULT_BROKER_TOPIC);
+            this.brokerUri = readString(config, "broker-uri", "tcp://mqtt-broker:1883");
+            this.brokerTopic = readString(config, "broker-topic", "iotdata");
             this.qos = readInt(config, "qos", 0);
             this.maxEmitPerNextTuple = readInt(config, "max-emit-per-next-tuple", 100);
             this.queueCapacity = readInt(config, "queue-capacity", 10_000);
@@ -239,6 +246,91 @@ public class StormConfig {
 
         public String getFieldSliceIndex() {
             return fieldSliceIndex;
+        }
+    }
+
+    public static final class BoltCurrentPlugAverageConfig {
+
+        private final String inputStreamData;
+        private final String inputFieldValue;
+        private final String inputFieldPlugId;
+        private final String inputFieldHouseholdId;
+        private final String inputFieldHouseId;
+        private final String inputFieldWindowSize;
+        private final String inputFieldSliceIndex;
+        private final String outputFieldWindowSize;
+        private final String outputFieldSliceIndex;
+        private final String outputFieldHouseId;
+        private final String outputFieldHouseholdId;
+        private final String outputFieldPlugId;
+        private final String outputFieldCurrentAverage;
+
+        private BoltCurrentPlugAverageConfig(Map<String, Object> config) {
+            this.inputStreamData = readString(config, "input-stream-data", "data");
+            this.inputFieldValue = readString(config, "input-field-value", "value");
+            this.inputFieldPlugId = readString(config, "input-field-plug-id", "plugId");
+            this.inputFieldHouseholdId = readString(config, "input-field-household-id", "householdId");
+            this.inputFieldHouseId = readString(config, "input-field-house-id", "houseId");
+            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
+            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
+            this.outputFieldWindowSize = readString(config, "output-field-window-size", "windowSize");
+            this.outputFieldSliceIndex = readString(config, "output-field-slice-index", "sliceIndex");
+            this.outputFieldHouseId = readString(config, "output-field-house-id", "houseId");
+            this.outputFieldHouseholdId = readString(config, "output-field-household-id", "householdId");
+            this.outputFieldPlugId = readString(config, "output-field-plug-id", "plugId");
+            this.outputFieldCurrentAverage = readString(config, "output-field-current-average", "currentAverage");
+        }
+
+        public String getInputStreamData() {
+            return inputStreamData;
+        }
+
+        public String getInputFieldValue() {
+            return inputFieldValue;
+        }
+
+        public String getInputFieldPlugId() {
+            return inputFieldPlugId;
+        }
+
+        public String getInputFieldHouseholdId() {
+            return inputFieldHouseholdId;
+        }
+
+        public String getInputFieldHouseId() {
+            return inputFieldHouseId;
+        }
+
+        public String getInputFieldWindowSize() {
+            return inputFieldWindowSize;
+        }
+
+        public String getInputFieldSliceIndex() {
+            return inputFieldSliceIndex;
+        }
+
+        public String getOutputFieldWindowSize() {
+            return outputFieldWindowSize;
+        }
+
+        public String getOutputFieldSliceIndex() {
+            return outputFieldSliceIndex;
+        }
+
+        public String getOutputFieldHouseId() {
+            return outputFieldHouseId;
+        }
+
+        public String getOutputFieldHouseholdId() {
+            return outputFieldHouseholdId;
+        }
+
+        public String getOutputFieldPlugId() {
+            return outputFieldPlugId;
+        }
+
+        public String getOutputFieldCurrentAverage() {
+            return outputFieldCurrentAverage;
         }
     }
 }
