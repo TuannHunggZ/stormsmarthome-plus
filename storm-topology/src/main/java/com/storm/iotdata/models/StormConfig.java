@@ -13,10 +13,12 @@ public class StormConfig {
     private static final String TIME_SLICES_KEY = "timeslices";
     private static final String SPOUT_DATA_SECTION = "spout-data";
     private static final String BOLT_AVG_SECTION = "bolt-avg";
+    private static final String BOLT_AVERAGE_PERSISTENCE_SECTION = "bolt-average-persistence";
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
     private final BoltAvgConfig boltAvgConfig;
+    private final BoltAveragePersistenceConfig boltAveragePersistenceConfig;
 
     public StormConfig() {
         this(loadConfigMap());
@@ -30,6 +32,9 @@ public class StormConfig {
         this.boltAvgConfig = new BoltAvgConfig(
             readSection(config, BOLT_AVG_SECTION)
         );
+        this.boltAveragePersistenceConfig = new BoltAveragePersistenceConfig(
+            readSection(config, BOLT_AVERAGE_PERSISTENCE_SECTION)
+        );
     }
 
     public SpoutDataConfig getSpoutDataConfig() {
@@ -42,6 +47,10 @@ public class StormConfig {
 
     public BoltAvgConfig getBoltAvgConfig() {
         return boltAvgConfig;
+    }
+
+    public BoltAveragePersistenceConfig getBoltAveragePersistenceConfig() {
+        return boltAveragePersistenceConfig;
     }
 
     @SuppressWarnings("unchecked")
@@ -343,6 +352,81 @@ public class StormConfig {
 
         public String getOutputFieldCurrentAverage() {
             return outputFieldCurrentAverage;
+        }
+    }
+
+    public static final class BoltAveragePersistenceConfig {
+
+        private final String inputPlugStreamId;
+        private final String inputHouseStreamId;
+        private final String jdbcUrl;
+        private final String jdbcUser;
+        private final String jdbcPassword;
+        private final int batchSize;
+        private final String plugTableName;
+        private final String houseTableName;
+        private final String plugInsertSql;
+        private final String houseInsertSql;
+
+        private BoltAveragePersistenceConfig(Map<String, Object> config) {
+            this.inputPlugStreamId = readString(config, "input-plug-stream-id", "current-plug-average");
+            this.inputHouseStreamId = readString(config, "input-house-stream-id", "current-house-average");
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUser = readString(config, "jdbc-user", "postgres");
+            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
+            this.batchSize = readInt(config, "batch-size", 1000);
+            this.plugTableName = readString(config, "plug-table-name", "plug_average");
+            this.houseTableName = readString(config, "house-table-name", "house_average");
+            this.plugInsertSql = readString(
+                config,
+                "plug-insert-sql",
+                "INSERT INTO %s (window_size, slice_index, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
+            );
+            this.houseInsertSql = readString(
+                config,
+                "house-insert-sql",
+                "INSERT INTO %s (window_size, slice_index, house_id, average_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
+            );
+        }
+
+        public String getInputPlugStreamId() {
+            return inputPlugStreamId;
+        }
+
+        public String getInputHouseStreamId() {
+            return inputHouseStreamId;
+        }
+
+        public String getJdbcUrl() {
+            return jdbcUrl;
+        }
+
+        public String getJdbcUser() {
+            return jdbcUser;
+        }
+
+        public String getJdbcPassword() {
+            return jdbcPassword;
+        }
+
+        public int getBatchSize() {
+            return batchSize;
+        }
+
+        public String getPlugTableName() {
+            return plugTableName;
+        }
+
+        public String getHouseTableName() {
+            return houseTableName;
+        }
+
+        public String getPlugInsertSql() {
+            return plugInsertSql;
+        }
+
+        public String getHouseInsertSql() {
+            return houseInsertSql;
         }
     }
 }

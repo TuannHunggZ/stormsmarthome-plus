@@ -34,6 +34,21 @@ public class MainTopo {
             boltDeclarer.allGrouping("spout-data", "punctuation-" + windowSize + "m");
         }
 
+        BoltDeclarer persistenceBolt = builder.setBolt(
+            "bolt-average-persistence",
+            new Bolt_averagePersistence(stormConfig.getBoltAveragePersistenceConfig()),
+            1
+        );
+
+        String plugAverageStreamId = stormConfig.getBoltAvgConfig().getOutputPlugStreamId();
+        String houseAverageStreamId = stormConfig.getBoltAvgConfig().getOutputHouseStreamId();
+
+        for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
+            String boltId = "bolt-avg-" + windowSize + "m";
+            persistenceBolt.allGrouping(boltId, plugAverageStreamId);
+            persistenceBolt.allGrouping(boltId, houseAverageStreamId);
+        }
+
         Config config = new Config();
         config.setDebug(true);
         config.setNumWorkers(4);

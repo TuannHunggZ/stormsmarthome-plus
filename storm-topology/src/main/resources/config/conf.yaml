@@ -97,6 +97,37 @@ bolt-avg:
   # Output stream for current house averages.
   output-house-stream-id: "current-house-average"
 
+bolt-average-persistence:
+  # Input stream carrying current plug averages.
+  input-plug-stream-id: "current-plug-average"
+
+  # Input stream carrying current house averages.
+  input-house-stream-id: "current-house-average"
+
+  # JDBC URL for PostgreSQL.
+  jdbc-url: "jdbc:postgresql://postgres:5432/iotdata"
+
+  # PostgreSQL username.
+  jdbc-user: "postgres"
+
+  # PostgreSQL password.
+  jdbc-password: "postgres"
+
+  # Number of records to buffer before flushing a batch.
+  batch-size: 1000
+
+  # Target table for plug averages.
+  plug-table-name: "plug_average"
+
+  # Target table for house averages.
+  house-table-name: "house_average"
+
+  # SQL template for plug inserts.
+  plug-insert-sql: "INSERT INTO %s (window_size, slice_index, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
+
+  # SQL template for house inserts.
+  house-insert-sql: "INSERT INTO %s (window_size, slice_index, house_id, average_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
+
   # Output field name for the punctuation window size.
   output-field-window-size: "windowSize"
 
