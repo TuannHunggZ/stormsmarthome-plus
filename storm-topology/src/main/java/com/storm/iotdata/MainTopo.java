@@ -71,6 +71,29 @@ public class MainTopo {
             houseMedianBolt.allGrouping("spout-data", housePunctuationStreamPrefix + windowSize + "m");
         }
 
+        BoltDeclarer forecastBolt = builder.setBolt(
+            "bolt-plug-forecast",
+            new Bolt_plugForecast(stormConfig.getBoltPlugForecastConfig()),
+            1
+        );
+
+        String inputAverageStreamId = stormConfig.getBoltPlugForecastConfig().getInputAverageStreamId();
+        String inputMedianStreamId = stormConfig.getBoltPlugForecastConfig().getInputMedianStreamId();
+
+        for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
+            forecastBolt.fieldsGrouping(
+                "bolt-average-" + windowSize + "m",
+                inputAverageStreamId,
+                new Fields("windowSize", "sliceIndex", "houseId", "householdId", "plugId")
+            );
+        }
+
+        forecastBolt.fieldsGrouping(
+            "bolt-plug-median",
+            inputMedianStreamId,
+            new Fields("windowSize", "sliceIndex", "houseId", "householdId", "plugId")
+        );
+
         Config config = new Config();
         config.setDebug(true);
         config.setNumWorkers(4);

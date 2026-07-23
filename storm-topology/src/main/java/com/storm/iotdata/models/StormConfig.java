@@ -16,6 +16,7 @@ public class StormConfig {
     private static final String BOLT_AVERAGE_PERSISTENCE_SECTION = "bolt-average-persistence";
     private static final String BOLT_PLUG_MEDIAN_SECTION = "bolt-plug-median";
     private static final String BOLT_HOUSE_MEDIAN_SECTION = "bolt-house-median";
+    private static final String BOLT_PLUG_FORECAST_SECTION = "bolt-plug-forecast";
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
@@ -23,6 +24,7 @@ public class StormConfig {
     private final BoltAveragePersistenceConfig boltAveragePersistenceConfig;
     private final BoltPlugMedianConfig boltPlugMedianConfig;
     private final BoltHouseMedianConfig boltHouseMedianConfig;
+    private final BoltPlugForecastConfig boltPlugForecastConfig;
 
     public StormConfig() {
         this(loadConfigMap());
@@ -44,6 +46,9 @@ public class StormConfig {
         );
         this.boltHouseMedianConfig = new BoltHouseMedianConfig(
             readSection(config, BOLT_HOUSE_MEDIAN_SECTION)
+        );
+        this.boltPlugForecastConfig = new BoltPlugForecastConfig(
+            readSection(config, BOLT_PLUG_FORECAST_SECTION)
         );
     }
 
@@ -69,6 +74,10 @@ public class StormConfig {
 
     public BoltHouseMedianConfig getBoltHouseMedianConfig() {
         return boltHouseMedianConfig;
+    }
+
+    public BoltPlugForecastConfig getBoltPlugForecastConfig() {
+        return boltPlugForecastConfig;
     }
 
     @SuppressWarnings("unchecked")
@@ -644,6 +653,73 @@ public class StormConfig {
 
         public String getOutputFieldArchiveMedian() {
             return outputFieldArchiveMedian;
+        }
+
+        public long getMinimumDatasetTimestampSeconds() {
+            return minimumDatasetTimestampSeconds;
+        }
+    }
+
+    public static final class BoltPlugForecastConfig {
+
+        private final String inputAverageStreamId;
+        private final String inputMedianStreamId;
+        private final String inputFieldWindowSize;
+        private final String inputFieldSliceIndex;
+        private final String inputFieldHouseId;
+        private final String inputFieldHouseholdId;
+        private final String inputFieldPlugId;
+        private final String inputFieldCurrentAverage;
+        private final String inputFieldArchiveMedian;
+        private final long minimumDatasetTimestampSeconds;
+
+        private BoltPlugForecastConfig(Map<String, Object> config) {
+            this.inputAverageStreamId = readString(config, "input-average-stream-id", "current-plug-average");
+            this.inputMedianStreamId = readString(config, "input-median-stream-id", "archive-plug-median");
+            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
+            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
+            this.inputFieldHouseId = readString(config, "input-field-house-id", "houseId");
+            this.inputFieldHouseholdId = readString(config, "input-field-household-id", "householdId");
+            this.inputFieldPlugId = readString(config, "input-field-plug-id", "plugId");
+            this.inputFieldCurrentAverage = readString(config, "input-field-current-average", "currentAverage");
+            this.inputFieldArchiveMedian = readString(config, "input-field-archive-median", "archiveMedian");
+            this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
+        }
+
+        public String getInputAverageStreamId() {
+            return inputAverageStreamId;
+        }
+
+        public String getInputMedianStreamId() {
+            return inputMedianStreamId;
+        }
+
+        public String getInputFieldWindowSize() {
+            return inputFieldWindowSize;
+        }
+
+        public String getInputFieldSliceIndex() {
+            return inputFieldSliceIndex;
+        }
+
+        public String getInputFieldHouseId() {
+            return inputFieldHouseId;
+        }
+
+        public String getInputFieldHouseholdId() {
+            return inputFieldHouseholdId;
+        }
+
+        public String getInputFieldPlugId() {
+            return inputFieldPlugId;
+        }
+
+        public String getInputFieldCurrentAverage() {
+            return inputFieldCurrentAverage;
+        }
+
+        public String getInputFieldArchiveMedian() {
+            return inputFieldArchiveMedian;
         }
 
         public long getMinimumDatasetTimestampSeconds() {

@@ -223,3 +223,34 @@ bolt-house-median:
 
   # Lower bound of the dataset in unix timestamp seconds.
   minimum-dataset-timestamp-seconds: 1377986401
+
+bolt-plug-forecast:
+  # Input stream id for plug average tuples.
+  input-average-stream-id: "current-plug-average"
+
+  # Input stream id for archive median tuples.
+  input-median-stream-id: "archive-plug-median"
+
+  # Input field name for the punctuation window size.
+  input-field-window-size: "windowSize"
+
+  # Input field name for the punctuation slice index.
+  input-field-slice-index: "sliceIndex"
+
+  # Input field name for the house identifier.
+  input-field-house-id: "houseId"
+
+  # Input field name for the household identifier.
+  input-field-household-id: "householdId"
+
+  # Input field name for the plug identifier.
+  input-field-plug-id: "plugId"
+
+  # Input field name for the current average value.
+  input-field-current-average: "currentAverage"
+
+  # Input field name for the archive median value.
+  input-field-archive-median: "archiveMedian"
+
+  # Lower bound of the dataset in unix timestamp seconds.
+  minimum-dataset-timestamp-seconds: 1377986401
