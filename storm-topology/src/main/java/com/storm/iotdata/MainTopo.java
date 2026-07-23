@@ -49,6 +49,17 @@ public class MainTopo {
             persistenceBolt.allGrouping(boltId, houseAverageStreamId);
         }
 
+        BoltDeclarer medianBolt = builder.setBolt(
+            "bolt-plug-median",
+            new Bolt_plugMedian(stormConfig.getBoltPlugMedianConfig()),
+            1
+        );
+
+        String punctuationStreamPrefix = stormConfig.getBoltPlugMedianConfig().getInputStreamIdPrefix();
+        for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
+            medianBolt.allGrouping("spout-data", punctuationStreamPrefix + windowSize + "m");
+        }
+
         Config config = new Config();
         config.setDebug(true);
         config.setNumWorkers(4);

@@ -17,8 +17,6 @@ CREATE TABLE plug_average (
     )
 );
 
-CREATE INDEX idx_slice_index ON plug_average(slice_index);
-
 CREATE TABLE house_average (
     window_size    INTEGER NOT NULL,
     slice_index    BIGINT NOT NULL,
@@ -33,5 +31,3 @@ CREATE TABLE house_average (
         house_id
     )
 );
-
-CREATE INDEX idx_house_slice_index ON house_average(slice_index);

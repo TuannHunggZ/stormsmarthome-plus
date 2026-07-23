@@ -14,11 +14,13 @@ public class StormConfig {
     private static final String SPOUT_DATA_SECTION = "spout-data";
     private static final String BOLT_AVERAGE_SECTION = "bolt-average";
     private static final String BOLT_AVERAGE_PERSISTENCE_SECTION = "bolt-average-persistence";
+    private static final String BOLT_PLUG_MEDIAN_SECTION = "bolt-plug-median";
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
     private final BoltAverageConfig boltAverageConfig;
     private final BoltAveragePersistenceConfig boltAveragePersistenceConfig;
+    private final BoltPlugMedianConfig boltPlugMedianConfig;
 
     public StormConfig() {
         this(loadConfigMap());
@@ -34,6 +36,9 @@ public class StormConfig {
         );
         this.boltAveragePersistenceConfig = new BoltAveragePersistenceConfig(
             readSection(config, BOLT_AVERAGE_PERSISTENCE_SECTION)
+        );
+        this.boltPlugMedianConfig = new BoltPlugMedianConfig(
+            readSection(config, BOLT_PLUG_MEDIAN_SECTION)
         );
     }
 
@@ -51,6 +56,10 @@ public class StormConfig {
 
     public BoltAveragePersistenceConfig getBoltAveragePersistenceConfig() {
         return boltAveragePersistenceConfig;
+    }
+
+    public BoltPlugMedianConfig getBoltPlugMedianConfig() {
+        return boltPlugMedianConfig;
     }
 
     @SuppressWarnings("unchecked")
@@ -111,6 +120,19 @@ public class StormConfig {
             return Integer.parseInt(value.toString().trim());
         } catch (NumberFormatException exception) {
             throw new IllegalStateException("Invalid integer config value for key: " + key, exception);
+        }
+    }
+
+    private static long readLong(Map<String, Object> config, String key, long defaultValue) {
+        Object value = config.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+
+        try {
+            return Long.parseLong(value.toString().trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalStateException("Invalid long config value for key: " + key, exception);
         }
     }
 
@@ -427,6 +449,107 @@ public class StormConfig {
 
         public String getHouseInsertSql() {
             return houseInsertSql;
+        }
+    }
+
+    public static final class BoltPlugMedianConfig {
+
+        private final String inputWindowSizeField;
+        private final String inputSliceIndexField;
+        private final String jdbcUrl;
+        private final String jdbcUser;
+        private final String jdbcPassword;
+        private final String selectSqlTemplate;
+        private final String inputStreamIdPrefix;
+        private final String outputStreamId;
+        private final String outputFieldWindowSize;
+        private final String outputFieldSliceIndex;
+        private final String outputFieldHouseId;
+        private final String outputFieldHouseholdId;
+        private final String outputFieldPlugId;
+        private final String outputFieldArchiveMedian;
+        private final long minimumDatasetTimestampSeconds;
+
+        private BoltPlugMedianConfig(Map<String, Object> config) {
+            this.inputWindowSizeField = readString(config, "input-window-size-field", "windowSize");
+            this.inputSliceIndexField = readString(config, "input-slice-index-field", "sliceIndex");
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUser = readString(config, "jdbc-user", "postgres");
+            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
+            this.selectSqlTemplate = readString(
+                config,
+                "select-sql-template",
+                "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND slice_index = ?"
+            );
+            this.inputStreamIdPrefix = readString(config, "input-stream-id-prefix", "punctuation-");
+            this.outputStreamId = readString(config, "output-stream-id", "archive-plug-median");
+            this.outputFieldWindowSize = readString(config, "output-field-window-size", "windowSize");
+            this.outputFieldSliceIndex = readString(config, "output-field-slice-index", "sliceIndex");
+            this.outputFieldHouseId = readString(config, "output-field-house-id", "houseId");
+            this.outputFieldHouseholdId = readString(config, "output-field-household-id", "householdId");
+            this.outputFieldPlugId = readString(config, "output-field-plug-id", "plugId");
+            this.outputFieldArchiveMedian = readString(config, "output-field-archive-median", "archiveMedian");
+            this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
+        }
+
+        public String getInputWindowSizeField() {
+            return inputWindowSizeField;
+        }
+
+        public String getInputSliceIndexField() {
+            return inputSliceIndexField;
+        }
+
+        public String getJdbcUrl() {
+            return jdbcUrl;
+        }
+
+        public String getJdbcUser() {
+            return jdbcUser;
+        }
+
+        public String getJdbcPassword() {
+            return jdbcPassword;
+        }
+
+        public String getSelectSqlTemplate() {
+            return selectSqlTemplate;
+        }
+
+        public String getInputStreamIdPrefix() {
+            return inputStreamIdPrefix;
+        }
+
+        public String getOutputStreamId() {
+            return outputStreamId;
+        }
+
+        public String getOutputFieldWindowSize() {
+            return outputFieldWindowSize;
+        }
+
+        public String getOutputFieldSliceIndex() {
+            return outputFieldSliceIndex;
+        }
+
+        public String getOutputFieldHouseId() {
+            return outputFieldHouseId;
+        }
+
+        public String getOutputFieldHouseholdId() {
+            return outputFieldHouseholdId;
+        }
+
+        public String getOutputFieldPlugId() {
+            return outputFieldPlugId;
+        }
+
+        public String getOutputFieldArchiveMedian() {
+            return outputFieldArchiveMedian;
+        }
+
+        public long getMinimumDatasetTimestampSeconds() {
+            return minimumDatasetTimestampSeconds;
         }
     }
 }
