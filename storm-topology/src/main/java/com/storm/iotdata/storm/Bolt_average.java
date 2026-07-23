@@ -20,9 +20,9 @@ import java.util.Objects;
  *
  * The bolt keeps only the active slice state in memory and emits results when punctuation closes the slice.
  */
-public class Bolt_Avg extends BaseRichBolt {
+public class Bolt_average extends BaseRichBolt {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(Bolt_Avg.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(Bolt_average.class);
 
 	private final String inputStreamData;
 	private final String inputFieldValue;
@@ -48,27 +48,27 @@ public class Bolt_Avg extends BaseRichBolt {
 	/**
 	 * Creates a bolt for a single punctuation window.
 	 *
-	 * @param boltAvgConfig Shared bolt configuration.
+	 * @param boltAverageConfig Shared bolt configuration.
 	 * @param windowSizeMinutes Window size handled by this bolt, in minutes.
 	 */
-	public Bolt_Avg(StormConfig.BoltAvgConfig boltAvgConfig, int windowSizeMinutes) {
-		Objects.requireNonNull(boltAvgConfig, "boltAvgConfig");
+	public Bolt_average(StormConfig.BoltAverageConfig boltAverageConfig, int windowSizeMinutes) {
+		Objects.requireNonNull(boltAverageConfig, "boltAverageConfig");
 
-		this.inputStreamData = boltAvgConfig.getInputStreamData();
-		this.inputFieldValue = boltAvgConfig.getInputFieldValue();
-		this.inputFieldPlugId = boltAvgConfig.getInputFieldPlugId();
-		this.inputFieldHouseholdId = boltAvgConfig.getInputFieldHouseholdId();
-		this.inputFieldHouseId = boltAvgConfig.getInputFieldHouseId();
-		this.inputFieldWindowSize = boltAvgConfig.getInputFieldWindowSize();
-		this.inputFieldSliceIndex = boltAvgConfig.getInputFieldSliceIndex();
-		this.outputPlugStreamId = boltAvgConfig.getOutputPlugStreamId();
-		this.outputHouseStreamId = boltAvgConfig.getOutputHouseStreamId();
-		this.outputFieldWindowSize = boltAvgConfig.getOutputFieldWindowSize();
-		this.outputFieldSliceIndex = boltAvgConfig.getOutputFieldSliceIndex();
-		this.outputFieldHouseId = boltAvgConfig.getOutputFieldHouseId();
-		this.outputFieldHouseholdId = boltAvgConfig.getOutputFieldHouseholdId();
-		this.outputFieldPlugId = boltAvgConfig.getOutputFieldPlugId();
-		this.outputFieldCurrentAverage = boltAvgConfig.getOutputFieldCurrentAverage();
+		this.inputStreamData = boltAverageConfig.getInputStreamData();
+		this.inputFieldValue = boltAverageConfig.getInputFieldValue();
+		this.inputFieldPlugId = boltAverageConfig.getInputFieldPlugId();
+		this.inputFieldHouseholdId = boltAverageConfig.getInputFieldHouseholdId();
+		this.inputFieldHouseId = boltAverageConfig.getInputFieldHouseId();
+		this.inputFieldWindowSize = boltAverageConfig.getInputFieldWindowSize();
+		this.inputFieldSliceIndex = boltAverageConfig.getInputFieldSliceIndex();
+		this.outputPlugStreamId = boltAverageConfig.getOutputPlugStreamId();
+		this.outputHouseStreamId = boltAverageConfig.getOutputHouseStreamId();
+		this.outputFieldWindowSize = boltAverageConfig.getOutputFieldWindowSize();
+		this.outputFieldSliceIndex = boltAverageConfig.getOutputFieldSliceIndex();
+		this.outputFieldHouseId = boltAverageConfig.getOutputFieldHouseId();
+		this.outputFieldHouseholdId = boltAverageConfig.getOutputFieldHouseholdId();
+		this.outputFieldPlugId = boltAverageConfig.getOutputFieldPlugId();
+		this.outputFieldCurrentAverage = boltAverageConfig.getOutputFieldCurrentAverage();
 
 		this.windowSizeMinutes = windowSizeMinutes;
 		this.accumulators = new HashMap<>();
@@ -80,7 +80,7 @@ public class Bolt_Avg extends BaseRichBolt {
 	@Override
 	public void prepare(Map<String, Object> stormConf, TopologyContext context, OutputCollector collector) {
 		this.collector = collector;
-		LOGGER.info("Bolt_Avg initialized for window {}m", windowSizeMinutes);
+		LOGGER.info("Bolt_Average initialized for window {}m", windowSizeMinutes);
 	}
 
 	/**

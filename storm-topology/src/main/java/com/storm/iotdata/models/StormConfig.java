@@ -12,12 +12,12 @@ public class StormConfig {
     private static final String DEFAULT_CONFIG_RESOURCE = "config/conf.yaml";
     private static final String TIME_SLICES_KEY = "timeslices";
     private static final String SPOUT_DATA_SECTION = "spout-data";
-    private static final String BOLT_AVG_SECTION = "bolt-avg";
+    private static final String BOLT_AVERAGE_SECTION = "bolt-average";
     private static final String BOLT_AVERAGE_PERSISTENCE_SECTION = "bolt-average-persistence";
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
-    private final BoltAvgConfig boltAvgConfig;
+    private final BoltAverageConfig boltAverageConfig;
     private final BoltAveragePersistenceConfig boltAveragePersistenceConfig;
 
     public StormConfig() {
@@ -29,8 +29,8 @@ public class StormConfig {
         this.spoutDataConfig = new SpoutDataConfig(
             readSection(config, SPOUT_DATA_SECTION)
         );
-        this.boltAvgConfig = new BoltAvgConfig(
-            readSection(config, BOLT_AVG_SECTION)
+        this.boltAverageConfig = new BoltAverageConfig(
+            readSection(config, BOLT_AVERAGE_SECTION)
         );
         this.boltAveragePersistenceConfig = new BoltAveragePersistenceConfig(
             readSection(config, BOLT_AVERAGE_PERSISTENCE_SECTION)
@@ -45,8 +45,8 @@ public class StormConfig {
         return timeSlicesMinutes;
     }
 
-    public BoltAvgConfig getBoltAvgConfig() {
-        return boltAvgConfig;
+    public BoltAverageConfig getBoltAverageConfig() {
+        return boltAverageConfig;
     }
 
     public BoltAveragePersistenceConfig getBoltAveragePersistenceConfig() {
@@ -258,7 +258,7 @@ public class StormConfig {
         }
     }
 
-    public static final class BoltAvgConfig {
+    public static final class BoltAverageConfig {
 
         private final String inputStreamData;
         private final String inputFieldValue;
@@ -276,7 +276,7 @@ public class StormConfig {
         private final String outputFieldPlugId;
         private final String outputFieldCurrentAverage;
 
-        private BoltAvgConfig(Map<String, Object> config) {
+        private BoltAverageConfig(Map<String, Object> config) {
             this.inputStreamData = readString(config, "input-stream-data", "data");
             this.inputFieldValue = readString(config, "input-field-value", "value");
             this.inputFieldPlugId = readString(config, "input-field-plug-id", "plugId");

@@ -69,7 +69,7 @@ spout-data:
   # Output field name for the punctuation slice index.
   field-slice-index: "sliceIndex"
 
-bolt-avg:
+bolt-average:
   # Input stream carrying live load events.
   input-stream-data: "data"
 

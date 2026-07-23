@@ -19,10 +19,10 @@ public class MainTopo {
         builder.setSpout("spout-data", new Spout_data(stormConfig.getSpoutDataConfig(), stormConfig.getTimeSlicesMinutes()), 1);
 
         for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
-            String boltId = "bolt-avg-" + windowSize + "m";
+            String boltId = "bolt-average-" + windowSize + "m";
             BoltDeclarer boltDeclarer = builder.setBolt(
                 boltId,
-                new Bolt_Avg(stormConfig.getBoltAvgConfig(), windowSize),
+                new Bolt_average(stormConfig.getBoltAverageConfig(), windowSize),
                 1
             );
 
@@ -40,11 +40,11 @@ public class MainTopo {
             1
         );
 
-        String plugAverageStreamId = stormConfig.getBoltAvgConfig().getOutputPlugStreamId();
-        String houseAverageStreamId = stormConfig.getBoltAvgConfig().getOutputHouseStreamId();
+        String plugAverageStreamId = stormConfig.getBoltAverageConfig().getOutputPlugStreamId();
+        String houseAverageStreamId = stormConfig.getBoltAverageConfig().getOutputHouseStreamId();
 
         for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
-            String boltId = "bolt-avg-" + windowSize + "m";
+            String boltId = "bolt-average-" + windowSize + "m";
             persistenceBolt.allGrouping(boltId, plugAverageStreamId);
             persistenceBolt.allGrouping(boltId, houseAverageStreamId);
         }
