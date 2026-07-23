@@ -183,3 +183,43 @@ bolt-plug-median:
 
   # Lower bound of the dataset in unix timestamp seconds.
   minimum-dataset-timestamp-seconds: 1377986401
+
+bolt-house-median:
+  # Input field name for the punctuation window size.
+  input-field-window-size: "windowSize"
+
+  # Input field name for the punctuation slice index.
+  input-field-slice-index: "sliceIndex"
+
+  # JDBC URL for PostgreSQL.
+  jdbc-url: "jdbc:postgresql://postgres:5432/iotdata"
+
+  # PostgreSQL username.
+  jdbc-user: "postgres"
+
+  # PostgreSQL password.
+  jdbc-password: "postgres"
+
+  # SQL template used to query historical house averages.
+  select-sql-template: "SELECT house_id, average_load FROM %s WHERE window_size = ? AND slice_index = ?"
+
+  # Prefix of punctuation stream ids consumed by this bolt.
+  input-stream-id-prefix: "punctuation-"
+
+  # Output stream carrying archived house medians.
+  output-stream-id: "archive-house-median"
+
+  # Output field name for the window size.
+  output-field-window-size: "windowSize"
+
+  # Output field name for the slice index.
+  output-field-slice-index: "sliceIndex"
+
+  # Output field name for the house identifier.
+  output-field-house-id: "houseId"
+
+  # Output field name for the archive median.
+  output-field-archive-median: "archiveMedian"
+
+  # Lower bound of the dataset in unix timestamp seconds.
+  minimum-dataset-timestamp-seconds: 1377986401

@@ -15,12 +15,14 @@ public class StormConfig {
     private static final String BOLT_AVERAGE_SECTION = "bolt-average";
     private static final String BOLT_AVERAGE_PERSISTENCE_SECTION = "bolt-average-persistence";
     private static final String BOLT_PLUG_MEDIAN_SECTION = "bolt-plug-median";
+    private static final String BOLT_HOUSE_MEDIAN_SECTION = "bolt-house-median";
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
     private final BoltAverageConfig boltAverageConfig;
     private final BoltAveragePersistenceConfig boltAveragePersistenceConfig;
     private final BoltPlugMedianConfig boltPlugMedianConfig;
+    private final BoltHouseMedianConfig boltHouseMedianConfig;
 
     public StormConfig() {
         this(loadConfigMap());
@@ -39,6 +41,9 @@ public class StormConfig {
         );
         this.boltPlugMedianConfig = new BoltPlugMedianConfig(
             readSection(config, BOLT_PLUG_MEDIAN_SECTION)
+        );
+        this.boltHouseMedianConfig = new BoltHouseMedianConfig(
+            readSection(config, BOLT_HOUSE_MEDIAN_SECTION)
         );
     }
 
@@ -60,6 +65,10 @@ public class StormConfig {
 
     public BoltPlugMedianConfig getBoltPlugMedianConfig() {
         return boltPlugMedianConfig;
+    }
+
+    public BoltHouseMedianConfig getBoltHouseMedianConfig() {
+        return boltHouseMedianConfig;
     }
 
     @SuppressWarnings("unchecked")
@@ -542,6 +551,95 @@ public class StormConfig {
 
         public String getOutputFieldPlugId() {
             return outputFieldPlugId;
+        }
+
+        public String getOutputFieldArchiveMedian() {
+            return outputFieldArchiveMedian;
+        }
+
+        public long getMinimumDatasetTimestampSeconds() {
+            return minimumDatasetTimestampSeconds;
+        }
+    }
+
+    public static final class BoltHouseMedianConfig {
+
+        private final String inputFieldWindowSize;
+        private final String inputFieldSliceIndex;
+        private final String jdbcUrl;
+        private final String jdbcUser;
+        private final String jdbcPassword;
+        private final String selectSqlTemplate;
+        private final String inputStreamIdPrefix;
+        private final String outputStreamId;
+        private final String outputFieldWindowSize;
+        private final String outputFieldSliceIndex;
+        private final String outputFieldHouseId;
+        private final String outputFieldArchiveMedian;
+        private final long minimumDatasetTimestampSeconds;
+
+        private BoltHouseMedianConfig(Map<String, Object> config) {
+            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
+            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUser = readString(config, "jdbc-user", "postgres");
+            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
+            this.selectSqlTemplate = readString(
+                config,
+                "select-sql-template",
+                "SELECT house_id, average_load FROM %s WHERE window_size = ? AND slice_index = ?"
+            );
+            this.inputStreamIdPrefix = readString(config, "input-stream-id-prefix", "punctuation-");
+            this.outputStreamId = readString(config, "output-stream-id", "archive-house-median");
+            this.outputFieldWindowSize = readString(config, "output-field-window-size", "windowSize");
+            this.outputFieldSliceIndex = readString(config, "output-field-slice-index", "sliceIndex");
+            this.outputFieldHouseId = readString(config, "output-field-house-id", "houseId");
+            this.outputFieldArchiveMedian = readString(config, "output-field-archive-median", "archiveMedian");
+            this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
+        }
+
+        public String getInputFieldWindowSize() {
+            return inputFieldWindowSize;
+        }
+
+        public String getInputFieldSliceIndex() {
+            return inputFieldSliceIndex;
+        }
+
+        public String getJdbcUrl() {
+            return jdbcUrl;
+        }
+
+        public String getJdbcUser() {
+            return jdbcUser;
+        }
+
+        public String getJdbcPassword() {
+            return jdbcPassword;
+        }
+
+        public String getSelectSqlTemplate() {
+            return selectSqlTemplate;
+        }
+
+        public String getInputStreamIdPrefix() {
+            return inputStreamIdPrefix;
+        }
+
+        public String getOutputStreamId() {
+            return outputStreamId;
+        }
+
+        public String getOutputFieldWindowSize() {
+            return outputFieldWindowSize;
+        }
+
+        public String getOutputFieldSliceIndex() {
+            return outputFieldSliceIndex;
+        }
+
+        public String getOutputFieldHouseId() {
+            return outputFieldHouseId;
         }
 
         public String getOutputFieldArchiveMedian() {

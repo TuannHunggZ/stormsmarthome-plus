@@ -60,6 +60,17 @@ public class MainTopo {
             medianBolt.allGrouping("spout-data", punctuationStreamPrefix + windowSize + "m");
         }
 
+        BoltDeclarer houseMedianBolt = builder.setBolt(
+            "bolt-house-median",
+            new Bolt_houseMedian(stormConfig.getBoltHouseMedianConfig()),
+            1
+        );
+
+        String housePunctuationStreamPrefix = stormConfig.getBoltHouseMedianConfig().getInputStreamIdPrefix();
+        for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
+            houseMedianBolt.allGrouping("spout-data", housePunctuationStreamPrefix + windowSize + "m");
+        }
+
         Config config = new Config();
         config.setDebug(true);
         config.setNumWorkers(4);
