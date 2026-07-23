@@ -17,6 +17,7 @@ public class StormConfig {
     private static final String BOLT_PLUG_MEDIAN_SECTION = "bolt-plug-median";
     private static final String BOLT_HOUSE_MEDIAN_SECTION = "bolt-house-median";
     private static final String BOLT_PLUG_FORECAST_SECTION = "bolt-plug-forecast";
+    private static final String BOLT_HOUSE_FORECAST_SECTION = "bolt-house-forecast";
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
@@ -25,6 +26,7 @@ public class StormConfig {
     private final BoltPlugMedianConfig boltPlugMedianConfig;
     private final BoltHouseMedianConfig boltHouseMedianConfig;
     private final BoltPlugForecastConfig boltPlugForecastConfig;
+    private final BoltHouseForecastConfig boltHouseForecastConfig;
 
     public StormConfig() {
         this(loadConfigMap());
@@ -49,6 +51,9 @@ public class StormConfig {
         );
         this.boltPlugForecastConfig = new BoltPlugForecastConfig(
             readSection(config, BOLT_PLUG_FORECAST_SECTION)
+        );
+        this.boltHouseForecastConfig = new BoltHouseForecastConfig(
+            readSection(config, BOLT_HOUSE_FORECAST_SECTION)
         );
     }
 
@@ -78,6 +83,10 @@ public class StormConfig {
 
     public BoltPlugForecastConfig getBoltPlugForecastConfig() {
         return boltPlugForecastConfig;
+    }
+
+    public BoltHouseForecastConfig getBoltHouseForecastConfig() {
+        return boltHouseForecastConfig;
     }
 
     @SuppressWarnings("unchecked")
@@ -712,6 +721,61 @@ public class StormConfig {
 
         public String getInputFieldPlugId() {
             return inputFieldPlugId;
+        }
+
+        public String getInputFieldCurrentAverage() {
+            return inputFieldCurrentAverage;
+        }
+
+        public String getInputFieldArchiveMedian() {
+            return inputFieldArchiveMedian;
+        }
+
+        public long getMinimumDatasetTimestampSeconds() {
+            return minimumDatasetTimestampSeconds;
+        }
+    }
+
+    public static final class BoltHouseForecastConfig {
+
+        private final String inputAverageStreamId;
+        private final String inputMedianStreamId;
+        private final String inputFieldWindowSize;
+        private final String inputFieldSliceIndex;
+        private final String inputFieldHouseId;
+        private final String inputFieldCurrentAverage;
+        private final String inputFieldArchiveMedian;
+        private final long minimumDatasetTimestampSeconds;
+
+        private BoltHouseForecastConfig(Map<String, Object> config) {
+            this.inputAverageStreamId = readString(config, "input-average-stream-id", "current-house-average");
+            this.inputMedianStreamId = readString(config, "input-median-stream-id", "archive-house-median");
+            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
+            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
+            this.inputFieldHouseId = readString(config, "input-field-house-id", "houseId");
+            this.inputFieldCurrentAverage = readString(config, "input-field-current-average", "currentAverage");
+            this.inputFieldArchiveMedian = readString(config, "input-field-archive-median", "archiveMedian");
+            this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
+        }
+
+        public String getInputAverageStreamId() {
+            return inputAverageStreamId;
+        }
+
+        public String getInputMedianStreamId() {
+            return inputMedianStreamId;
+        }
+
+        public String getInputFieldWindowSize() {
+            return inputFieldWindowSize;
+        }
+
+        public String getInputFieldSliceIndex() {
+            return inputFieldSliceIndex;
+        }
+
+        public String getInputFieldHouseId() {
+            return inputFieldHouseId;
         }
 
         public String getInputFieldCurrentAverage() {

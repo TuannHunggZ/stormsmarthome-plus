@@ -71,6 +71,29 @@ public class MainTopo {
             houseMedianBolt.allGrouping("spout-data", housePunctuationStreamPrefix + windowSize + "m");
         }
 
+        BoltDeclarer houseForecastBolt = builder.setBolt(
+            "bolt-house-forecast",
+            new Bolt_houseForecast(stormConfig.getBoltHouseForecastConfig()),
+            1
+        );
+
+        String houseForecastAverageStreamId = stormConfig.getBoltHouseForecastConfig().getInputAverageStreamId();
+        String houseForecastMedianStreamId = stormConfig.getBoltHouseForecastConfig().getInputMedianStreamId();
+
+        for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
+            houseForecastBolt.fieldsGrouping(
+                "bolt-average-" + windowSize + "m",
+                houseForecastAverageStreamId,
+                new Fields("windowSize", "sliceIndex", "houseId")
+            );
+        }
+
+        houseForecastBolt.fieldsGrouping(
+            "bolt-house-median",
+            houseForecastMedianStreamId,
+            new Fields("windowSize", "sliceIndex", "houseId")
+        );
+
         BoltDeclarer forecastBolt = builder.setBolt(
             "bolt-plug-forecast",
             new Bolt_plugForecast(stormConfig.getBoltPlugForecastConfig()),
