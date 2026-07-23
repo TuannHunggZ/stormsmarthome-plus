@@ -3,21 +3,13 @@
 
 # Time slices, in minutes, used by punctuation generation across the topology.
 timeslices:
-  # 1-minute punctuation window.
   - 1
-  # 5-minute punctuation window.
   - 5
-  # 10-minute punctuation window.
   - 10
-  # 15-minute punctuation window.
   - 15
-  # 20-minute punctuation window.
   - 20
-  # 30-minute punctuation window.
   - 30
-  # 60-minute punctuation window.
   - 60
-  # 120-minute punctuation window.
   - 120
 
 spout-data:
@@ -97,6 +89,24 @@ bolt-average:
   # Output stream for current house averages.
   output-house-stream-id: "current-house-average"
 
+  # Output field name for the punctuation window size.
+  output-field-window-size: "windowSize"
+
+  # Output field name for the punctuation slice index.
+  output-field-slice-index: "sliceIndex"
+
+  # Output field name for the house identifier.
+  output-field-house-id: "houseId"
+
+  # Output field name for the household identifier.
+  output-field-household-id: "householdId"
+
+  # Output field name for the plug identifier.
+  output-field-plug-id: "plugId"
+
+  # Output field name for the current average value.
+  output-field-current-average: "currentAverage"
+
 bolt-average-persistence:
   # Input stream carrying current plug averages.
   input-plug-stream-id: "current-plug-average"
@@ -127,21 +137,3 @@ bolt-average-persistence:
 
   # SQL template for house inserts.
   house-insert-sql: "INSERT INTO %s (window_size, slice_index, house_id, average_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
-
-  # Output field name for the punctuation window size.
-  output-field-window-size: "windowSize"
-
-  # Output field name for the punctuation slice index.
-  output-field-slice-index: "sliceIndex"
-
-  # Output field name for the house identifier.
-  output-field-house-id: "houseId"
-
-  # Output field name for the household identifier.
-  output-field-household-id: "householdId"
-
-  # Output field name for the plug identifier.
-  output-field-plug-id: "plugId"
-
-  # Output field name for the current average value.
-  output-field-current-average: "currentAverage"
