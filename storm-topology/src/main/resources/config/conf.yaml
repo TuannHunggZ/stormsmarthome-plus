@@ -225,6 +225,21 @@ bolt-house-median:
   minimum-dataset-timestamp-seconds: 1377986401
 
 bolt-plug-forecast:
+  # JDBC URL for PostgreSQL.
+  jdbc-url: "jdbc:postgresql://postgres:5432/iotdata"
+
+  # PostgreSQL username.
+  jdbc-user: "postgres"
+
+  # PostgreSQL password.
+  jdbc-password: "postgres"
+
+  # SQL template for plug inserts.
+  insert-sql: "INSERT INTO %s (window_size, slice_index, house_id, household_id, plug_id, forecast_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
+
+  # Target table for plug forecast.
+  table-name: "plug_forecast"
+
   # Input stream id for plug average tuples.
   input-average-stream-id: "current-plug-average"
 
