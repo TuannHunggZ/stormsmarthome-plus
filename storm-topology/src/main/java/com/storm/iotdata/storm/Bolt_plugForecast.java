@@ -159,7 +159,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 	private void persistForecast(ForecastKey forecastKey, double forecast) throws SQLException {
 		insertStatement.clearParameters();
 		insertStatement.setInt(1, forecastKey.windowSize);
-		insertStatement.setLong(2, forecastKey.sliceIndex);
+		insertStatement.setLong(2, forecastKey.sliceIndex + 2); // Store forecast for two slices ahead
 		insertStatement.setInt(3, forecastKey.houseId);
 		insertStatement.setInt(4, forecastKey.householdId);
 		insertStatement.setInt(5, forecastKey.plugId);
