@@ -772,6 +772,11 @@ public class StormConfig {
 
     public static final class BoltHouseForecastConfig {
 
+        private final String jdbcUrl;
+        private final String jdbcUser;
+        private final String jdbcPassword;
+        private final String insertSql;
+        private final String tableName;
         private final String inputAverageStreamId;
         private final String inputMedianStreamId;
         private final String inputFieldWindowSize;
@@ -782,6 +787,15 @@ public class StormConfig {
         private final long minimumDatasetTimestampSeconds;
 
         private BoltHouseForecastConfig(Map<String, Object> config) {
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUser = readString(config, "jdbc-user", "postgres");
+            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
+            this.insertSql = readString(
+                config,
+                "insert-sql",
+                "INSERT INTO %s (window_size, slice_index, house_id, forecast_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
+            );
+            this.tableName = readString(config, "table-name", "house_forecast");
             this.inputAverageStreamId = readString(config, "input-average-stream-id", "current-house-average");
             this.inputMedianStreamId = readString(config, "input-median-stream-id", "archive-house-median");
             this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
@@ -790,6 +804,26 @@ public class StormConfig {
             this.inputFieldCurrentAverage = readString(config, "input-field-current-average", "currentAverage");
             this.inputFieldArchiveMedian = readString(config, "input-field-archive-median", "archiveMedian");
             this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
+        }
+
+        public String getJdbcUrl() {
+            return jdbcUrl;
+        }
+
+        public String getJdbcUser() {
+            return jdbcUser;
+        }
+
+        public String getJdbcPassword() {
+            return jdbcPassword;
+        }
+
+        public String getInsertSql() {
+            return insertSql;
+        }
+
+        public String getTableName() {
+            return tableName;
         }
 
         public String getInputAverageStreamId() {
