@@ -76,8 +76,23 @@ services:
     networks:
       storm_network:
 
+  grafana:
+    image: grafana/grafana:12.1.9
+    container_name: grafana
+    hostname: grafana
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes: 
+      - grafana-data:/var/lib/grafana
+    networks:
+      storm_network:
+
 volumes:
   postgres_data:
+  grafana-data:
 
 networks:
   storm_network:
