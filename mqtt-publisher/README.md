@@ -8,10 +8,25 @@ CLI Node.js để replay file CSV của DEBS 2014 lên MQTT broker theo đúng �
 npm install
 ```
 
+## Lấy data DEBS 2014
+
+Dataset DEBS 2014 có thể được tải xuống từ Google Drive. Hãy làm theo các bước sau:
+
+```bash
+mkdir -p data-file
+python3 -m venv venv
+source venv/bin/activate
+pip install gdown
+gdown 14nO_NhyyJ_ig25RqvTS4wrkm-Zv1revR
+tar -xzf debs40houses16h.tar.gz -C data-file/
+```
+
+Dataset sẽ được giải nén vào thư mục `data-file/`, chứa 40 file CSV (`house-0.csv` đến `house-39.csv`), mỗi file đại diện cho một ngôi nhà.
+
 ## Chạy
 
 ```bash
-node src/main.js --file /path/to/debs.csv --topic debs/replay
+node src/main.js --file data-file/house-0.csv --topic iot-data
 ```
 
 ## Tùy chọn
