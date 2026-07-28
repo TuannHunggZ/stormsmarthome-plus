@@ -3,126 +3,104 @@ import csv
 import os
 import random
 
-
 SECONDS_PER_DAY = 86400
 RANDOM_RANGE = 2.0
 
 
-def read_records(input_file):
+def find_max_id(input_file):
     """
-    Read all records and return:
-    - records
-    - max_id
+    Scan the input file and return the maximum ID.
     """
 
-    records = []
     max_id = 0
 
     with open(input_file, "r", newline="") as f:
         reader = csv.reader(f)
 
         for row in reader:
+            max_id = max(max_id, int(row[0]))
 
-            record = {
-                "id": int(row[0]),
-                "timestamp": int(row[1]),
-                "value": float(row[2]),
-                "property": row[3],
-                "plug_id": row[4],
-                "household_id": row[5],
-                "house_id": row[6],
-            }
-
-            max_id = max(max_id, record["id"])
-
-            records.append(record)
-
-    return records, max_id
+    return max_id
 
 
-def write_shifted_day(records, days, output_file):
+def write_shifted_day(input_file, days, output_file):
     """
-    Write the shifted original day.
+    Generate the shifted current day (Day N+1).
     """
 
     offset = days * SECONDS_PER_DAY
 
-    with open(output_file, "w", newline="") as f:
+    with open(input_file, "r", newline="") as fin, \
+            open(output_file, "w", newline="") as fout:
 
-        writer = csv.writer(f)
+        reader = csv.reader(fin)
+        writer = csv.writer(fout)
 
-        for r in records:
+        for row in reader:
 
             writer.writerow([
-                r["id"],
-                r["timestamp"] + offset,
-                f"{r['value']:.3f}",
-                r["property"],
-                r["plug_id"],
-                r["household_id"],
-                r["house_id"],
+                int(row[0]),
+                int(row[1]) + offset,
+                f"{float(row[2]):.3f}",
+                row[3],
+                row[4],
+                row[5],
+                row[6],
             ])
 
 
-def write_history(records, max_id, days, output_file):
+def write_history(input_file, max_id, days, output_file):
     """
     Generate historical data.
 
     Output order:
+
         DayN
         DayN-1
         ...
         Day1
-
-    DayN là ngày ngay trước file gốc đã dịch timestamp.
     """
 
     random.seed(42)
 
     current_id = max_id - 1
 
-    # Giá trị của "ngày sau"
-    previous_values = [r["value"] for r in records]
+    with open(output_file, "w", newline="") as fout:
 
-    with open(output_file, "w", newline="") as f:
-
-        writer = csv.writer(f)
+        writer = csv.writer(fout)
 
         # DayN -> Day1
         for day in range(days, 0, -1):
 
-            # DayN = original + (days-1) ngày
-            # ...
-            # Day1 = original + 0 ngày
             offset = (day - 1) * SECONDS_PER_DAY
 
-            current_values = []
+            print(f"Generating Day {day}...")
 
-            for idx, r in enumerate(records):
+            with open(input_file, "r", newline="") as fin:
 
-                value = previous_values[idx] + random.uniform(
-                    -RANDOM_RANGE,
-                    RANDOM_RANGE,
-                )
+                reader = csv.reader(fin)
 
-                value = max(0.0, value)
+                for row in reader:
 
-                current_values.append(value)
+                    value = max(
+                        0.0,
+                        float(row[2]) + random.uniform(
+                            -RANDOM_RANGE,
+                            RANDOM_RANGE,
+                        ),
+                    )
 
-                writer.writerow([
-                    current_id,
-                    r["timestamp"] + offset,
-                    f"{value:.3f}",
-                    r["property"],
-                    r["plug_id"],
-                    r["household_id"],
-                    r["house_id"],
-                ])
+                    writer.writerow([
+                        current_id,
+                        int(row[1]) + offset,
+                        f"{value:.3f}",
+                        row[3],
+                        row[4],
+                        row[5],
+                        row[6],
+                    ])
 
-                current_id -= 1
-
-            # Ngày tiếp theo sẽ dựa trên ngày vừa sinh
-            previous_values = current_values
+                    current_id -= 1
 
 
 def main():
@@ -132,12 +110,14 @@ def main():
     )
 
     parser.add_argument(
+        "-i",
         "--input",
         required=True,
-        help="Input house csv file",
+        help="Input house CSV file",
     )
 
     parser.add_argument(
+        "-d",
         "--days",
         type=int,
         required=True,
@@ -145,6 +125,7 @@ def main():
     )
 
     parser.add_argument(
+        "-o",
         "--output-dir",
         required=True,
         help="Output directory",
@@ -154,36 +135,41 @@ def main():
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    records, max_id = read_records(args.input)
-
     basename = os.path.splitext(
         os.path.basename(args.input)
     )[0]
 
     shifted_file = os.path.join(
         args.output_dir,
-        f"{basename}_day_{args.days + 1}.csv",
+        f"{basename}_day-{args.days + 1}.csv",
     )
 
     history_file = os.path.join(
         args.output_dir,
-        f"historical_{basename}_day1_{args.days}.csv",
+        f"historical_{basename}_day-1-{args.days}.csv",
     )
 
+    print("Scanning input file...")
+    max_id = find_max_id(args.input)
+
+    print(f"Maximum ID: {max_id}")
+
+    print("Generating shifted current day...")
     write_shifted_day(
-        records,
+        args.input,
         args.days,
         shifted_file,
     )
 
+    print("Generating historical data...")
     write_history(
-        records,
+        args.input,
         max_id,
         args.days,
         history_file,
     )
 
-    print("Done.")
+    print("\nDone.")
     print(f"Shifted day : {shifted_file}")
     print(f"History     : {history_file}")
 
