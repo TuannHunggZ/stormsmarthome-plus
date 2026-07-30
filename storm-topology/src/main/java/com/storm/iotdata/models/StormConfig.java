@@ -262,7 +262,7 @@ public class StormConfig {
         private final String houseInsertSql;
 
         private BoltAveragePersistenceConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
             this.jdbcUser = readString(config, "jdbc-user", "postgres");
             this.jdbcPassword = readString(config, "jdbc-password", "postgres");
             this.batchSize = readInt(config, "batch-size", 1000);
@@ -322,7 +322,7 @@ public class StormConfig {
         private final long minimumDatasetTimestampSeconds;
 
         private BoltPlugMedianConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
             this.jdbcUser = readString(config, "jdbc-user", "postgres");
             this.jdbcPassword = readString(config, "jdbc-password", "postgres");
             this.selectSqlTemplate = readString(
@@ -363,7 +363,7 @@ public class StormConfig {
         private final long minimumDatasetTimestampSeconds;
 
         private BoltHouseMedianConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
             this.jdbcUser = readString(config, "jdbc-user", "postgres");
             this.jdbcPassword = readString(config, "jdbc-password", "postgres");
             this.selectSqlTemplate = readString(
@@ -405,7 +405,7 @@ public class StormConfig {
         private final long minimumDatasetTimestampSeconds;
 
         private BoltPlugForecastConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
             this.jdbcUser = readString(config, "jdbc-user", "postgres");
             this.jdbcPassword = readString(config, "jdbc-password", "postgres");
             this.insertSql = readString(
@@ -452,7 +452,7 @@ public class StormConfig {
         private final long minimumDatasetTimestampSeconds;
 
         private BoltHouseForecastConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
+            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
             this.jdbcUser = readString(config, "jdbc-user", "postgres");
             this.jdbcPassword = readString(config, "jdbc-password", "postgres");
             this.insertSql = readString(

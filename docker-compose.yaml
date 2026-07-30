@@ -8,9 +8,9 @@ services:
     ports:
       - 1883:1883
 
-  postgres:
-    image: postgres:15.3-alpine
-    container_name: postgres
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: timescaledb
     networks:
       storm_network:
     environment:
@@ -20,8 +20,7 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./timescaledb/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   zookeeper:
     image: zookeeper:3.8.5
@@ -91,7 +90,6 @@ services:
       storm_network:
 
 volumes:
-  postgres_data:
   grafana-data:
 
 networks:

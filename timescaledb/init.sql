@@ -17,6 +17,8 @@ CREATE TABLE plug_average (
     )
 );
 
+SELECT create_hypertable('plug_average', by_range('timestamp', INTERVAL '1 day'));
+
 CREATE TABLE house_average (
     window_size    INTEGER NOT NULL,
     timestamp      TIMESTAMPTZ NOT NULL,
@@ -31,6 +33,8 @@ CREATE TABLE house_average (
         house_id
     )
 );
+
+SELECT create_hypertable('house_average', by_range('timestamp', INTERVAL '1 day'));
 
 CREATE TABLE plug_forecast (
     window_size    INTEGER NOT NULL,
@@ -51,6 +55,8 @@ CREATE TABLE plug_forecast (
     )
 );
 
+SELECT create_hypertable('plug_forecast', by_range('timestamp', INTERVAL '1 day'));
+
 CREATE TABLE house_forecast (
     window_size    INTEGER NOT NULL,
     timestamp      TIMESTAMPTZ NOT NULL,
@@ -65,3 +71,5 @@ CREATE TABLE house_forecast (
         timestamp
     )
 );
+
+SELECT create_hypertable('house_forecast', by_range('timestamp', INTERVAL '1 day'));

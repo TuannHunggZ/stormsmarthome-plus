@@ -47,7 +47,7 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 	public Bolt_averagePersistence(StormConfig.BoltAveragePersistenceConfig config) {
 		Objects.requireNonNull(config, "config");
 		this.inputPlugStreamId = "current-plug-average";
-		this.inputHouseStreamId = "current-plug-average";
+		this.inputHouseStreamId = "current-house-average";
 		this.jdbcUrl = config.getJdbcUrl();
 		this.jdbcUser = config.getJdbcUser();
 		this.jdbcPassword = config.getJdbcPassword();

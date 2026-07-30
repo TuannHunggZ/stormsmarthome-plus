@@ -39,7 +39,7 @@ spout-data:
 
 bolt-average-persistence:
   # JDBC URL for PostgreSQL.
-  jdbc-url: "jdbc:postgresql://postgres:5432/iotdata"
+  jdbc-url: "jdbc:postgresql://timescaledb:5432/iotdata"
 
   # PostgreSQL username.
   jdbc-user: "postgres"
@@ -64,7 +64,7 @@ bolt-average-persistence:
 
 bolt-plug-median:
   # JDBC URL for PostgreSQL.
-  jdbc-url: "jdbc:postgresql://postgres:5432/iotdata"
+  jdbc-url: "jdbc:postgresql://timescaledb:5432/iotdata"
 
   # PostgreSQL username.
   jdbc-user: "postgres"
@@ -80,7 +80,7 @@ bolt-plug-median:
 
 bolt-house-median:
   # JDBC URL for PostgreSQL.
-  jdbc-url: "jdbc:postgresql://postgres:5432/iotdata"
+  jdbc-url: "jdbc:postgresql://timescaledb:5432/iotdata"
 
   # PostgreSQL username.
   jdbc-user: "postgres"
@@ -96,7 +96,7 @@ bolt-house-median:
 
 bolt-plug-forecast:
   # JDBC URL for PostgreSQL.
-  jdbc-url: "jdbc:postgresql://postgres:5432/iotdata"
+  jdbc-url: "jdbc:postgresql://timescaledb:5432/iotdata"
 
   # PostgreSQL username.
   jdbc-user: "postgres"
@@ -115,7 +115,7 @@ bolt-plug-forecast:
 
 bolt-house-forecast:
   # JDBC URL for PostgreSQL.
-  jdbc-url: "jdbc:postgresql://postgres:5432/iotdata"
+  jdbc-url: "jdbc:postgresql://timescaledb:5432/iotdata"
 
   # PostgreSQL username.
   jdbc-user: "postgres"
