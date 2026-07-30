@@ -13,6 +13,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -24,6 +26,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Bolt_plugForecast.class);
 	private static final long SECONDS_PER_DAY = 86_400L;
+	private static final long SECONDS_PER_MINUTE = 60L;
 
 	private final String jdbcUrl;
 	private final String jdbcUser;
@@ -33,7 +36,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 	private final String inputAverageStreamId;
 	private final String inputMedianStreamId;
 	private final String inputFieldWindowSize;
-	private final String inputFieldSliceIndex;
+	private final String inputFieldTimestamp;
 	private final String inputFieldHouseId;
 	private final String inputFieldHouseholdId;
 	private final String inputFieldPlugId;
@@ -58,15 +61,15 @@ public class Bolt_plugForecast extends BaseRichBolt {
 		this.jdbcPassword = config.getJdbcPassword();
 		this.tableName = config.getTableName();
 		this.insertSql = String.format(config.getInsertSql(), tableName);
-		this.inputAverageStreamId = config.getInputAverageStreamId();
-		this.inputMedianStreamId = config.getInputMedianStreamId();
-		this.inputFieldWindowSize = config.getInputFieldWindowSize();
-		this.inputFieldSliceIndex = config.getInputFieldSliceIndex();
-		this.inputFieldHouseId = config.getInputFieldHouseId();
-		this.inputFieldHouseholdId = config.getInputFieldHouseholdId();
-		this.inputFieldPlugId = config.getInputFieldPlugId();
-		this.inputFieldCurrentAverage = config.getInputFieldCurrentAverage();
-		this.inputFieldArchiveMedian = config.getInputFieldArchiveMedian();
+		this.inputAverageStreamId = "current-plug-average";
+		this.inputMedianStreamId = "archive-plug-median";
+		this.inputFieldWindowSize = "windowSize";
+		this.inputFieldTimestamp = "timestamp";
+		this.inputFieldHouseId = "houseId";
+		this.inputFieldHouseholdId = "householdId";
+		this.inputFieldPlugId = "plugId";
+		this.inputFieldCurrentAverage = "currentAverage";
+		this.inputFieldArchiveMedian = "archiveMedian";
 		this.minimumDatasetTimestampSeconds = config.getMinimumDatasetTimestampSeconds();
 		this.forecastStates = new HashMap<>();
 	}
@@ -117,10 +120,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 		forecastState.average = input.getDoubleByField(inputFieldCurrentAverage);
 		forecastState.hasAverage = true;
 
-		long firstDayLastSlice =
-			(minimumDatasetTimestampSeconds + SECONDS_PER_DAY)
-				/ (forecastKey.windowSize * 60L);
-		if (forecastKey.sliceIndex < firstDayLastSlice) {
+		if (forecastKey.timestamp < minimumDatasetTimestampSeconds + SECONDS_PER_DAY) {
 			persistForecast(forecastKey, forecastState.average);
 			forecastStates.remove(forecastKey);
 			return;
@@ -147,9 +147,11 @@ public class Bolt_plugForecast extends BaseRichBolt {
 	}
 
 	private ForecastKey readForecastKey(Tuple input) {
+		int windowSize = input.getIntegerByField(inputFieldWindowSize);
+		long timestamp = input.getLongByField(inputFieldTimestamp);
 		return new ForecastKey(
-			input.getIntegerByField(inputFieldWindowSize),
-			input.getLongByField(inputFieldSliceIndex),
+			windowSize,
+			timestamp,
 			input.getIntegerByField(inputFieldHouseId),
 			input.getIntegerByField(inputFieldHouseholdId),
 			input.getIntegerByField(inputFieldPlugId)
@@ -159,13 +161,20 @@ public class Bolt_plugForecast extends BaseRichBolt {
 	private void persistForecast(ForecastKey forecastKey, double forecast) throws SQLException {
 		insertStatement.clearParameters();
 		insertStatement.setInt(1, forecastKey.windowSize);
-		insertStatement.setLong(2, forecastKey.sliceIndex + 2); // Store forecast for two slices ahead
+		insertStatement.setTimestamp(
+			2,
+			toSqlTimestamp(forecastKey.timestamp + (2L * forecastKey.windowSize * SECONDS_PER_MINUTE))
+		);
 		insertStatement.setInt(3, forecastKey.houseId);
 		insertStatement.setInt(4, forecastKey.householdId);
 		insertStatement.setInt(5, forecastKey.plugId);
 		insertStatement.setDouble(6, forecast);
 		insertStatement.executeUpdate();
 		connection.commit();
+	}
+
+	private Timestamp toSqlTimestamp(long epochSeconds) {
+		return Timestamp.from(Instant.ofEpochSecond(epochSeconds));
 	}
 
 	private void initializeDatabase() {
@@ -207,14 +216,14 @@ public class Bolt_plugForecast extends BaseRichBolt {
 	private static final class ForecastKey {
 
 		private final int windowSize;
-		private final long sliceIndex;
+		private final long timestamp;
 		private final int houseId;
 		private final int householdId;
 		private final int plugId;
 
-		private ForecastKey(int windowSize, long sliceIndex, int houseId, int householdId, int plugId) {
+		private ForecastKey(int windowSize, long timestamp, int houseId, int householdId, int plugId) {
 			this.windowSize = windowSize;
-			this.sliceIndex = sliceIndex;
+			this.timestamp = timestamp;
 			this.houseId = houseId;
 			this.householdId = householdId;
 			this.plugId = plugId;
@@ -230,7 +239,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 			}
 			ForecastKey forecastKey = (ForecastKey) other;
 			return windowSize == forecastKey.windowSize
-				&& sliceIndex == forecastKey.sliceIndex
+				&& timestamp == forecastKey.timestamp
 				&& houseId == forecastKey.houseId
 				&& householdId == forecastKey.householdId
 				&& plugId == forecastKey.plugId;
@@ -238,7 +247,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(windowSize, sliceIndex, houseId, householdId, plugId);
+			return Objects.hash(windowSize, timestamp, houseId, householdId, plugId);
 		}
 	}
 

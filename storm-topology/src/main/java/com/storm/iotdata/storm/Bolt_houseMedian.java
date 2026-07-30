@@ -13,9 +13,11 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.Timestamp;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,9 +32,10 @@ public class Bolt_houseMedian extends BaseRichBolt {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Bolt_houseMedian.class);
 	private static final int MINUTES_PER_DAY = 1440;
+	private static final long SECONDS_PER_MINUTE = 60L;
 
 	private final String inputFieldWindowSize;
-	private final String inputFieldSliceIndex;
+	private final String inputFieldTimestamp;
 	private final String jdbcUrl;
 	private final String jdbcUser;
 	private final String jdbcPassword;
@@ -40,7 +43,7 @@ public class Bolt_houseMedian extends BaseRichBolt {
 	private final String inputStreamIdPrefix;
 	private final String outputStreamId;
 	private final String outputFieldWindowSize;
-	private final String outputFieldSliceIndex;
+	private final String outputFieldTimestamp;
 	private final String outputFieldHouseId;
 	private final String outputFieldArchiveMedian;
 	private final long minimumDatasetTimestampSeconds;
@@ -56,18 +59,18 @@ public class Bolt_houseMedian extends BaseRichBolt {
 	 */
 	public Bolt_houseMedian(StormConfig.BoltHouseMedianConfig config) {
 		Objects.requireNonNull(config, "config");
-		this.inputFieldWindowSize = config.getInputFieldWindowSize();
-		this.inputFieldSliceIndex = config.getInputFieldSliceIndex();
+		this.inputFieldWindowSize = "windowSize";
+		this.inputFieldTimestamp = "timestamp";
 		this.jdbcUrl = config.getJdbcUrl();
 		this.jdbcUser = config.getJdbcUser();
 		this.jdbcPassword = config.getJdbcPassword();
 		this.selectSqlTemplate = config.getSelectSqlTemplate();
-		this.inputStreamIdPrefix = config.getInputStreamIdPrefix();
-		this.outputStreamId = config.getOutputStreamId();
-		this.outputFieldWindowSize = config.getOutputFieldWindowSize();
-		this.outputFieldSliceIndex = config.getOutputFieldSliceIndex();
-		this.outputFieldHouseId = config.getOutputFieldHouseId();
-		this.outputFieldArchiveMedian = config.getOutputFieldArchiveMedian();
+		this.inputStreamIdPrefix = "punctuation-";
+		this.outputStreamId = "archive-house-median";
+		this.outputFieldWindowSize = "windowSize";
+		this.outputFieldTimestamp = "timestamp";
+		this.outputFieldHouseId = "houseId";
+		this.outputFieldArchiveMedian = "archiveMedian";
 		this.minimumDatasetTimestampSeconds = config.getMinimumDatasetTimestampSeconds();
 	}
 
@@ -97,7 +100,7 @@ public class Bolt_houseMedian extends BaseRichBolt {
             outputStreamId,
             new Fields(
                 outputFieldWindowSize,
-                outputFieldSliceIndex,
+                outputFieldTimestamp,
                 outputFieldHouseId,
                 outputFieldArchiveMedian
             )
@@ -121,16 +124,15 @@ public class Bolt_houseMedian extends BaseRichBolt {
 
 	private void processPunctuation(Tuple input) throws SQLException {
 		int windowSize = input.getIntegerByField(inputFieldWindowSize);
-		long sliceIndex = input.getLongByField(inputFieldSliceIndex);
-		long forecastSlice = sliceIndex + 2L;
-		int slicesPerDay = calculateSlicesPerDay(windowSize);
-		long windowSizeSeconds = windowSize * 60L;
-		long minimumSliceIndex = minimumDatasetTimestampSeconds / windowSizeSeconds;
+		long timestamp = input.getLongByField(inputFieldTimestamp);
+		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
+		long forecastTimestamp = timestamp + (2L * windowSizeSeconds);
+		long dayStrideSeconds = calculateSlicesPerDay(windowSize) * windowSizeSeconds;
 
-		LOGGER.info("Forecast slice {} for window {}m", forecastSlice, windowSize);
+		LOGGER.info("Forecast timestamp {} for window {}m", forecastTimestamp, windowSize);
 
-		Map<Integer, List<Double>> historicalValues = loadHistoricalValues(windowSize, forecastSlice, slicesPerDay, minimumSliceIndex);
-		int processedHouseCount = emitMedian(windowSize, sliceIndex, historicalValues);
+		Map<Integer, List<Double>> historicalValues = loadHistoricalValues(windowSize, forecastTimestamp, dayStrideSeconds);
+		int processedHouseCount = emitMedian(windowSize, timestamp, historicalValues);
 
 		LOGGER.info("Number of houses processed: {}", processedHouseCount);
 	}
@@ -143,12 +145,12 @@ public class Bolt_houseMedian extends BaseRichBolt {
 		return MINUTES_PER_DAY / windowSize;
 	}
 
-	private Map<Integer, List<Double>> loadHistoricalValues(int windowSize, long forecastSlice, int slicesPerDay, long minimumSliceIndex) throws SQLException {
+	private Map<Integer, List<Double>> loadHistoricalValues(int windowSize, long forecastTimestamp, long dayStrideSeconds) throws SQLException {
 		Map<Integer, List<Double>> historicalValues = new HashMap<>();
 		int queriedSlices = 0;
 
-		for (long historySlice = forecastSlice - slicesPerDay; historySlice >= minimumSliceIndex; historySlice -= slicesPerDay) {
-			loadHistoricalValues(windowSize, historySlice, historicalValues);
+		for (long historyTimestamp = forecastTimestamp - dayStrideSeconds; historyTimestamp >= minimumDatasetTimestampSeconds; historyTimestamp -= dayStrideSeconds) {
+			loadHistoricalValues(windowSize, historyTimestamp, historicalValues);
 			queriedSlices += 1;
 		}
 
@@ -156,10 +158,10 @@ public class Bolt_houseMedian extends BaseRichBolt {
 		return historicalValues;
 	}
 
-	private void loadHistoricalValues(int windowSize, long historySlice, Map<Integer, List<Double>> historicalValues) throws SQLException {
+	private void loadHistoricalValues(int windowSize, long historyTimestamp, Map<Integer, List<Double>> historicalValues) throws SQLException {
 		selectStatement.clearParameters();
 		selectStatement.setInt(1, windowSize);
-		selectStatement.setLong(2, historySlice);
+		selectStatement.setTimestamp(2, toSqlTimestamp(historyTimestamp));
 
 		try (ResultSet resultSet = selectStatement.executeQuery()) {
 			while (resultSet.next()) {
@@ -175,13 +177,13 @@ public class Bolt_houseMedian extends BaseRichBolt {
 		}
 	}
 
-	private int emitMedian(int windowSize, long sliceIndex, Map<Integer, List<Double>> historicalValues) {
+	private int emitMedian(int windowSize, long timestamp, Map<Integer, List<Double>> historicalValues) {
 		int emittedCount = 0;
 
 		for (Map.Entry<Integer, List<Double>> entry : historicalValues.entrySet()) {
 			int houseId = entry.getKey();
 			double archiveMedian = calculateMedian(entry.getValue());
-			emitMedian(windowSize, sliceIndex, houseId, archiveMedian);
+			emitMedian(windowSize, timestamp, houseId, archiveMedian);
 			emittedCount += 1;
 		}
 
@@ -207,12 +209,12 @@ public class Bolt_houseMedian extends BaseRichBolt {
 		return sortedValues.get(middleIndex);
 	}
 
-	private void emitMedian(int windowSize, long sliceIndex, int houseId, double archiveMedian) {
+	private void emitMedian(int windowSize, long timestamp, int houseId, double archiveMedian) {
 		collector.emit(
 			outputStreamId,
 			new Values(
 				windowSize,
-				sliceIndex,
+				timestamp,
 				houseId,
 				archiveMedian
 			)
@@ -231,5 +233,9 @@ public class Bolt_houseMedian extends BaseRichBolt {
 		} catch (SQLException exception) {
 			LOGGER.warn("Failed to close PostgreSQL resources cleanly", exception);
 		}
+	}
+
+	private Timestamp toSqlTimestamp(long epochSeconds) {
+		return Timestamp.from(Instant.ofEpochSecond(epochSeconds));
 	}
 }

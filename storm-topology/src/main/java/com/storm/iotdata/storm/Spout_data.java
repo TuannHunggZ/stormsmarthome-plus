@@ -53,7 +53,6 @@ public class Spout_data extends BaseRichSpout {
 	private final String fieldHouseholdId;
 	private final String fieldHouseId;
 	private final String fieldWindowSize;
-	private final String fieldSliceIndex;
 	private final int propertyLoad;
 	private final int connectionTimeoutSeconds;
 	private final List<Integer> timeSliceMinutes;
@@ -78,15 +77,14 @@ public class Spout_data extends BaseRichSpout {
 		this.qos = spoutDataConfig.getQos();
 		this.maxEmitPerNextTuple = spoutDataConfig.getMaxEmitPerNextTuple();
 		this.queueCapacity = spoutDataConfig.getQueueCapacity();
-		this.streamIdData = spoutDataConfig.getStreamIdData();
-		this.fieldId = spoutDataConfig.getFieldId();
-		this.fieldTimestamp = spoutDataConfig.getFieldTimestamp();
-		this.fieldValue = spoutDataConfig.getFieldValue();
-		this.fieldPlugId = spoutDataConfig.getFieldPlugId();
-		this.fieldHouseholdId = spoutDataConfig.getFieldHouseholdId();
-		this.fieldHouseId = spoutDataConfig.getFieldHouseId();
-		this.fieldWindowSize = spoutDataConfig.getFieldWindowSize();
-		this.fieldSliceIndex = spoutDataConfig.getFieldSliceIndex();
+		this.streamIdData = "data";
+		this.fieldId = "id";
+		this.fieldTimestamp = "timestamp";
+		this.fieldValue = "value";
+		this.fieldPlugId = "plugId";
+		this.fieldHouseholdId = "householdId";
+		this.fieldHouseId = "houseId";
+		this.fieldWindowSize = "windowSize";
 		this.propertyLoad = spoutDataConfig.getPropertyLoad();
 		this.connectionTimeoutSeconds = spoutDataConfig.getConnectionTimeoutSeconds();
 		this.eventQueue = new LinkedBlockingQueue<>(this.queueCapacity);
@@ -133,7 +131,10 @@ public class Spout_data extends BaseRichSpout {
 	}
 
 	/**
-	 * Declares the output fields for the "data" stream.
+	 * Declares the output fields for the data stream and all punctuation streams.
+	 * Each punctuation tuple contains:
+	 * - windowSize: window size in minutes.
+	 * - timestamp: start timestamp (seconds) of the completed time slice.
 	 *
 	 * @param declarer Storm declarer.
 	 */
@@ -154,7 +155,7 @@ public class Spout_data extends BaseRichSpout {
 		for (Integer timeSlice : timeSliceMinutes) {
 			declarer.declareStream(
 				punctuationStreamIds.get(timeSlice),
-				new Fields(fieldWindowSize, fieldSliceIndex)
+				new Fields(fieldWindowSize, fieldTimestamp)
 			);
 		}
 	}
@@ -336,13 +337,15 @@ public class Spout_data extends BaseRichSpout {
 			}
 
 			for (long sliceIndex = previousSliceIndex; sliceIndex < currentSliceIndex; sliceIndex += 1) {
+				long sliceTimestamp = sliceIndex * windowSizeSeconds;
+				
 				LOGGER.info(
-					"Generated punctuation: window={}m sliceIndex={}",
+					"Generated punctuation: window={}m timestamp={}",
 					timeSliceMinutesValue,
-					sliceIndex
+					sliceTimestamp
 				);
 
-				streamEvents.add(new PunctuationEvent(timeSliceMinutesValue, sliceIndex));
+				streamEvents.add(new PunctuationEvent(timeSliceMinutesValue, sliceTimestamp));
 			}
 		}
 
@@ -368,13 +371,13 @@ public class Spout_data extends BaseRichSpout {
 		String punctuationStreamId = punctuationStreamIds.get(event.windowSizeMinutes);
 		collector.emit(
 			punctuationStreamId,
-			new Values(event.windowSizeMinutes, event.sliceIndex),
-			punctuationStreamId + "-" + event.sliceIndex
+			new Values(event.windowSizeMinutes, event.timestamp),
+			punctuationStreamId + "-" + event.timestamp
 		);
 		LOGGER.info(
-			"Emitted punctuation: window={}m sliceIndex={}",
+			"Emitted punctuation: window={}m timestamp={}",
 			event.windowSizeMinutes,
-			event.sliceIndex
+			event.timestamp
 		);
 	}
 
@@ -429,15 +432,16 @@ public class Spout_data extends BaseRichSpout {
 
 	/**
 	 * Control event indicating that a time slice has completed.
+	 * The timestamp represents the start time of the completed slice.
 	 */
 	private static final class PunctuationEvent implements StreamEvent {
 
 		private final int windowSizeMinutes;
-		private final long sliceIndex;
+		private final long timestamp;
 
-		private PunctuationEvent(int windowSizeMinutes, long sliceIndex) {
+		private PunctuationEvent(int windowSizeMinutes, long timestamp) {
 			this.windowSizeMinutes = windowSizeMinutes;
-			this.sliceIndex = sliceIndex;
+			this.timestamp = timestamp;
 		}
 	}
 

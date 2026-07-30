@@ -1,6 +1,6 @@
 CREATE TABLE plug_average (
     window_size    INTEGER NOT NULL,
-    slice_index    BIGINT NOT NULL,
+    timestamp      TIMESTAMPTZ NOT NULL,
 
     house_id       INTEGER NOT NULL,
     household_id   INTEGER NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE plug_average (
 
     PRIMARY KEY (
         window_size,
-        slice_index,
+        timestamp,
         house_id,
         household_id,
         plug_id
@@ -19,7 +19,7 @@ CREATE TABLE plug_average (
 
 CREATE TABLE house_average (
     window_size    INTEGER NOT NULL,
-    slice_index    BIGINT NOT NULL,
+    timestamp      TIMESTAMPTZ NOT NULL,
 
     house_id       INTEGER NOT NULL,
 
@@ -27,14 +27,14 @@ CREATE TABLE house_average (
 
     PRIMARY KEY (
         window_size,
-        slice_index,
+        timestamp,
         house_id
     )
 );
 
 CREATE TABLE plug_forecast (
     window_size    INTEGER NOT NULL,
-    slice_index    BIGINT NOT NULL,
+    timestamp      TIMESTAMPTZ NOT NULL,
 
     house_id       INTEGER NOT NULL,
     household_id   INTEGER NOT NULL,
@@ -47,13 +47,13 @@ CREATE TABLE plug_forecast (
         house_id,
         household_id,
         plug_id,
-        slice_index
+        timestamp
     )
 );
 
 CREATE TABLE house_forecast (
     window_size    INTEGER NOT NULL,
-    slice_index    BIGINT NOT NULL,
+    timestamp      TIMESTAMPTZ NOT NULL,
 
     house_id       INTEGER NOT NULL,
 
@@ -62,6 +62,6 @@ CREATE TABLE house_forecast (
     PRIMARY KEY (
         window_size,
         house_id,
-        slice_index
+        timestamp
     )
 );

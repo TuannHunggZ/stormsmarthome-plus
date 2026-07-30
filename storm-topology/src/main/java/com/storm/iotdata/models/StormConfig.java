@@ -12,7 +12,6 @@ public class StormConfig {
     private static final String DEFAULT_CONFIG_RESOURCE = "config/conf.yaml";
     private static final String TIME_SLICES_KEY = "timeslices";
     private static final String SPOUT_DATA_SECTION = "spout-data";
-    private static final String BOLT_AVERAGE_SECTION = "bolt-average";
     private static final String BOLT_AVERAGE_PERSISTENCE_SECTION = "bolt-average-persistence";
     private static final String BOLT_PLUG_MEDIAN_SECTION = "bolt-plug-median";
     private static final String BOLT_HOUSE_MEDIAN_SECTION = "bolt-house-median";
@@ -21,7 +20,6 @@ public class StormConfig {
 
     private final List<Integer> timeSlicesMinutes;
     private final SpoutDataConfig spoutDataConfig;
-    private final BoltAverageConfig boltAverageConfig;
     private final BoltAveragePersistenceConfig boltAveragePersistenceConfig;
     private final BoltPlugMedianConfig boltPlugMedianConfig;
     private final BoltHouseMedianConfig boltHouseMedianConfig;
@@ -36,9 +34,6 @@ public class StormConfig {
         this.timeSlicesMinutes = readIntegerList(config, TIME_SLICES_KEY);
         this.spoutDataConfig = new SpoutDataConfig(
             readSection(config, SPOUT_DATA_SECTION)
-        );
-        this.boltAverageConfig = new BoltAverageConfig(
-            readSection(config, BOLT_AVERAGE_SECTION)
         );
         this.boltAveragePersistenceConfig = new BoltAveragePersistenceConfig(
             readSection(config, BOLT_AVERAGE_PERSISTENCE_SECTION)
@@ -63,10 +58,6 @@ public class StormConfig {
 
     public List<Integer> getTimeSlicesMinutes() {
         return timeSlicesMinutes;
-    }
-
-    public BoltAverageConfig getBoltAverageConfig() {
-        return boltAverageConfig;
     }
 
     public BoltAveragePersistenceConfig getBoltAveragePersistenceConfig() {
@@ -214,14 +205,6 @@ public class StormConfig {
         private final String streamIdData;
         private final int propertyLoad;
         private final int connectionTimeoutSeconds;
-        private final String fieldId;
-        private final String fieldTimestamp;
-        private final String fieldValue;
-        private final String fieldPlugId;
-        private final String fieldHouseholdId;
-        private final String fieldHouseId;
-        private final String fieldWindowSize;
-        private final String fieldSliceIndex;
 
         private SpoutDataConfig(Map<String, Object> config) {
             this.brokerUri = readString(config, "broker-uri", "tcp://mqtt-broker:1883");
@@ -232,14 +215,6 @@ public class StormConfig {
             this.streamIdData = readString(config, "stream-id-data", "data");
             this.propertyLoad = readInt(config, "property-load", 1);
             this.connectionTimeoutSeconds = readInt(config, "connection-timeout-seconds", 10);
-            this.fieldId = readString(config, "field-id", "id");
-            this.fieldTimestamp = readString(config, "field-timestamp", "timestamp");
-            this.fieldValue = readString(config, "field-value", "value");
-            this.fieldPlugId = readString(config, "field-plug-id", "plugId");
-            this.fieldHouseholdId = readString(config, "field-household-id", "householdId");
-            this.fieldHouseId = readString(config, "field-house-id", "houseId");
-            this.fieldWindowSize = readString(config, "field-window-size", "windowSize");
-            this.fieldSliceIndex = readString(config, "field-slice-index", "sliceIndex");
         }
 
         public String getBrokerUri() {
@@ -273,141 +248,10 @@ public class StormConfig {
         public int getConnectionTimeoutSeconds() {
             return connectionTimeoutSeconds;
         }
-
-        public String getFieldId() {
-            return fieldId;
-        }
-
-        public String getFieldTimestamp() {
-            return fieldTimestamp;
-        }
-
-        public String getFieldValue() {
-            return fieldValue;
-        }
-
-        public String getFieldPlugId() {
-            return fieldPlugId;
-        }
-
-        public String getFieldHouseholdId() {
-            return fieldHouseholdId;
-        }
-
-        public String getFieldHouseId() {
-            return fieldHouseId;
-        }
-
-        public String getFieldWindowSize() {
-            return fieldWindowSize;
-        }
-
-        public String getFieldSliceIndex() {
-            return fieldSliceIndex;
-        }
-    }
-
-    public static final class BoltAverageConfig {
-
-        private final String inputStreamData;
-        private final String inputFieldValue;
-        private final String inputFieldPlugId;
-        private final String inputFieldHouseholdId;
-        private final String inputFieldHouseId;
-        private final String inputFieldWindowSize;
-        private final String inputFieldSliceIndex;
-        private final String outputPlugStreamId;
-        private final String outputHouseStreamId;
-        private final String outputFieldWindowSize;
-        private final String outputFieldSliceIndex;
-        private final String outputFieldHouseId;
-        private final String outputFieldHouseholdId;
-        private final String outputFieldPlugId;
-        private final String outputFieldCurrentAverage;
-
-        private BoltAverageConfig(Map<String, Object> config) {
-            this.inputStreamData = readString(config, "input-stream-data", "data");
-            this.inputFieldValue = readString(config, "input-field-value", "value");
-            this.inputFieldPlugId = readString(config, "input-field-plug-id", "plugId");
-            this.inputFieldHouseholdId = readString(config, "input-field-household-id", "householdId");
-            this.inputFieldHouseId = readString(config, "input-field-house-id", "houseId");
-            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
-            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
-            this.outputPlugStreamId = readString(config, "output-plug-stream-id", "current-plug-average");
-            this.outputHouseStreamId = readString(config, "output-house-stream-id", "current-house-average");
-            this.outputFieldWindowSize = readString(config, "output-field-window-size", "windowSize");
-            this.outputFieldSliceIndex = readString(config, "output-field-slice-index", "sliceIndex");
-            this.outputFieldHouseId = readString(config, "output-field-house-id", "houseId");
-            this.outputFieldHouseholdId = readString(config, "output-field-household-id", "householdId");
-            this.outputFieldPlugId = readString(config, "output-field-plug-id", "plugId");
-            this.outputFieldCurrentAverage = readString(config, "output-field-current-average", "currentAverage");
-        }
-
-        public String getInputStreamData() {
-            return inputStreamData;
-        }
-
-        public String getInputFieldValue() {
-            return inputFieldValue;
-        }
-
-        public String getInputFieldPlugId() {
-            return inputFieldPlugId;
-        }
-
-        public String getInputFieldHouseholdId() {
-            return inputFieldHouseholdId;
-        }
-
-        public String getInputFieldHouseId() {
-            return inputFieldHouseId;
-        }
-
-        public String getInputFieldWindowSize() {
-            return inputFieldWindowSize;
-        }
-
-        public String getInputFieldSliceIndex() {
-            return inputFieldSliceIndex;
-        }
-
-        public String getOutputPlugStreamId() {
-            return outputPlugStreamId;
-        }
-
-        public String getOutputHouseStreamId() {
-            return outputHouseStreamId;
-        }
-
-        public String getOutputFieldWindowSize() {
-            return outputFieldWindowSize;
-        }
-
-        public String getOutputFieldSliceIndex() {
-            return outputFieldSliceIndex;
-        }
-
-        public String getOutputFieldHouseId() {
-            return outputFieldHouseId;
-        }
-
-        public String getOutputFieldHouseholdId() {
-            return outputFieldHouseholdId;
-        }
-
-        public String getOutputFieldPlugId() {
-            return outputFieldPlugId;
-        }
-
-        public String getOutputFieldCurrentAverage() {
-            return outputFieldCurrentAverage;
-        }
     }
 
     public static final class BoltAveragePersistenceConfig {
 
-        private final String inputPlugStreamId;
-        private final String inputHouseStreamId;
         private final String jdbcUrl;
         private final String jdbcUser;
         private final String jdbcPassword;
@@ -418,8 +262,6 @@ public class StormConfig {
         private final String houseInsertSql;
 
         private BoltAveragePersistenceConfig(Map<String, Object> config) {
-            this.inputPlugStreamId = readString(config, "input-plug-stream-id", "current-plug-average");
-            this.inputHouseStreamId = readString(config, "input-house-stream-id", "current-house-average");
             this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
             this.jdbcUser = readString(config, "jdbc-user", "postgres");
             this.jdbcPassword = readString(config, "jdbc-password", "postgres");
@@ -429,21 +271,13 @@ public class StormConfig {
             this.plugInsertSql = readString(
                 config,
                 "plug-insert-sql",
-                "INSERT INTO %s (window_size, slice_index, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
+                "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
             );
             this.houseInsertSql = readString(
                 config,
                 "house-insert-sql",
-                "INSERT INTO %s (window_size, slice_index, house_id, average_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
+                "INSERT INTO %s (window_size, timestamp, house_id, average_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
             );
-        }
-
-        public String getInputPlugStreamId() {
-            return inputPlugStreamId;
-        }
-
-        public String getInputHouseStreamId() {
-            return inputHouseStreamId;
         }
 
         public String getJdbcUrl() {
@@ -481,50 +315,22 @@ public class StormConfig {
 
     public static final class BoltPlugMedianConfig {
 
-        private final String inputFieldWindowSize;
-        private final String inputFieldSliceIndex;
         private final String jdbcUrl;
         private final String jdbcUser;
         private final String jdbcPassword;
         private final String selectSqlTemplate;
-        private final String inputStreamIdPrefix;
-        private final String outputStreamId;
-        private final String outputFieldWindowSize;
-        private final String outputFieldSliceIndex;
-        private final String outputFieldHouseId;
-        private final String outputFieldHouseholdId;
-        private final String outputFieldPlugId;
-        private final String outputFieldArchiveMedian;
         private final long minimumDatasetTimestampSeconds;
 
         private BoltPlugMedianConfig(Map<String, Object> config) {
-            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
-            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
             this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
             this.jdbcUser = readString(config, "jdbc-user", "postgres");
             this.jdbcPassword = readString(config, "jdbc-password", "postgres");
             this.selectSqlTemplate = readString(
                 config,
                 "select-sql-template",
-                "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND slice_index = ?"
+                "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND timestamp = ?"
             );
-            this.inputStreamIdPrefix = readString(config, "input-stream-id-prefix", "punctuation-");
-            this.outputStreamId = readString(config, "output-stream-id", "archive-plug-median");
-            this.outputFieldWindowSize = readString(config, "output-field-window-size", "windowSize");
-            this.outputFieldSliceIndex = readString(config, "output-field-slice-index", "sliceIndex");
-            this.outputFieldHouseId = readString(config, "output-field-house-id", "houseId");
-            this.outputFieldHouseholdId = readString(config, "output-field-household-id", "householdId");
-            this.outputFieldPlugId = readString(config, "output-field-plug-id", "plugId");
-            this.outputFieldArchiveMedian = readString(config, "output-field-archive-median", "archiveMedian");
             this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
-        }
-
-        public String getInputFieldWindowSize() {
-            return inputFieldWindowSize;
-        }
-
-        public String getInputFieldSliceIndex() {
-            return inputFieldSliceIndex;
         }
 
         public String getJdbcUrl() {
@@ -541,38 +347,6 @@ public class StormConfig {
 
         public String getSelectSqlTemplate() {
             return selectSqlTemplate;
-        }
-
-        public String getInputStreamIdPrefix() {
-            return inputStreamIdPrefix;
-        }
-
-        public String getOutputStreamId() {
-            return outputStreamId;
-        }
-
-        public String getOutputFieldWindowSize() {
-            return outputFieldWindowSize;
-        }
-
-        public String getOutputFieldSliceIndex() {
-            return outputFieldSliceIndex;
-        }
-
-        public String getOutputFieldHouseId() {
-            return outputFieldHouseId;
-        }
-
-        public String getOutputFieldHouseholdId() {
-            return outputFieldHouseholdId;
-        }
-
-        public String getOutputFieldPlugId() {
-            return outputFieldPlugId;
-        }
-
-        public String getOutputFieldArchiveMedian() {
-            return outputFieldArchiveMedian;
         }
 
         public long getMinimumDatasetTimestampSeconds() {
@@ -582,46 +356,22 @@ public class StormConfig {
 
     public static final class BoltHouseMedianConfig {
 
-        private final String inputFieldWindowSize;
-        private final String inputFieldSliceIndex;
         private final String jdbcUrl;
         private final String jdbcUser;
         private final String jdbcPassword;
         private final String selectSqlTemplate;
-        private final String inputStreamIdPrefix;
-        private final String outputStreamId;
-        private final String outputFieldWindowSize;
-        private final String outputFieldSliceIndex;
-        private final String outputFieldHouseId;
-        private final String outputFieldArchiveMedian;
         private final long minimumDatasetTimestampSeconds;
 
         private BoltHouseMedianConfig(Map<String, Object> config) {
-            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
-            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
             this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://postgres:5432/iotdata");
             this.jdbcUser = readString(config, "jdbc-user", "postgres");
             this.jdbcPassword = readString(config, "jdbc-password", "postgres");
             this.selectSqlTemplate = readString(
                 config,
                 "select-sql-template",
-                "SELECT house_id, average_load FROM %s WHERE window_size = ? AND slice_index = ?"
+                "SELECT house_id, average_load FROM %s WHERE window_size = ? AND timestamp = ?"
             );
-            this.inputStreamIdPrefix = readString(config, "input-stream-id-prefix", "punctuation-");
-            this.outputStreamId = readString(config, "output-stream-id", "archive-house-median");
-            this.outputFieldWindowSize = readString(config, "output-field-window-size", "windowSize");
-            this.outputFieldSliceIndex = readString(config, "output-field-slice-index", "sliceIndex");
-            this.outputFieldHouseId = readString(config, "output-field-house-id", "houseId");
-            this.outputFieldArchiveMedian = readString(config, "output-field-archive-median", "archiveMedian");
             this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
-        }
-
-        public String getInputFieldWindowSize() {
-            return inputFieldWindowSize;
-        }
-
-        public String getInputFieldSliceIndex() {
-            return inputFieldSliceIndex;
         }
 
         public String getJdbcUrl() {
@@ -638,30 +388,6 @@ public class StormConfig {
 
         public String getSelectSqlTemplate() {
             return selectSqlTemplate;
-        }
-
-        public String getInputStreamIdPrefix() {
-            return inputStreamIdPrefix;
-        }
-
-        public String getOutputStreamId() {
-            return outputStreamId;
-        }
-
-        public String getOutputFieldWindowSize() {
-            return outputFieldWindowSize;
-        }
-
-        public String getOutputFieldSliceIndex() {
-            return outputFieldSliceIndex;
-        }
-
-        public String getOutputFieldHouseId() {
-            return outputFieldHouseId;
-        }
-
-        public String getOutputFieldArchiveMedian() {
-            return outputFieldArchiveMedian;
         }
 
         public long getMinimumDatasetTimestampSeconds() {
@@ -676,15 +402,6 @@ public class StormConfig {
         private final String jdbcPassword;
         private final String insertSql;
         private final String tableName;
-        private final String inputAverageStreamId;
-        private final String inputMedianStreamId;
-        private final String inputFieldWindowSize;
-        private final String inputFieldSliceIndex;
-        private final String inputFieldHouseId;
-        private final String inputFieldHouseholdId;
-        private final String inputFieldPlugId;
-        private final String inputFieldCurrentAverage;
-        private final String inputFieldArchiveMedian;
         private final long minimumDatasetTimestampSeconds;
 
         private BoltPlugForecastConfig(Map<String, Object> config) {
@@ -694,18 +411,9 @@ public class StormConfig {
             this.insertSql = readString(
                 config,
                 "insert-sql",
-                "INSERT INTO %s (window_size, slice_index, house_id, household_id, plug_id, forecast_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
+                "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, forecast_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
             );
             this.tableName = readString(config, "table-name", "plug_forecast");
-            this.inputAverageStreamId = readString(config, "input-average-stream-id", "current-plug-average");
-            this.inputMedianStreamId = readString(config, "input-median-stream-id", "archive-plug-median");
-            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
-            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
-            this.inputFieldHouseId = readString(config, "input-field-house-id", "houseId");
-            this.inputFieldHouseholdId = readString(config, "input-field-household-id", "householdId");
-            this.inputFieldPlugId = readString(config, "input-field-plug-id", "plugId");
-            this.inputFieldCurrentAverage = readString(config, "input-field-current-average", "currentAverage");
-            this.inputFieldArchiveMedian = readString(config, "input-field-archive-median", "archiveMedian");
             this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
         }
 
@@ -727,42 +435,6 @@ public class StormConfig {
 
         public String getTableName() {
             return tableName;
-        }
-
-        public String getInputAverageStreamId() {
-            return inputAverageStreamId;
-        }
-
-        public String getInputMedianStreamId() {
-            return inputMedianStreamId;
-        }
-
-        public String getInputFieldWindowSize() {
-            return inputFieldWindowSize;
-        }
-
-        public String getInputFieldSliceIndex() {
-            return inputFieldSliceIndex;
-        }
-
-        public String getInputFieldHouseId() {
-            return inputFieldHouseId;
-        }
-
-        public String getInputFieldHouseholdId() {
-            return inputFieldHouseholdId;
-        }
-
-        public String getInputFieldPlugId() {
-            return inputFieldPlugId;
-        }
-
-        public String getInputFieldCurrentAverage() {
-            return inputFieldCurrentAverage;
-        }
-
-        public String getInputFieldArchiveMedian() {
-            return inputFieldArchiveMedian;
         }
 
         public long getMinimumDatasetTimestampSeconds() {
@@ -777,13 +449,6 @@ public class StormConfig {
         private final String jdbcPassword;
         private final String insertSql;
         private final String tableName;
-        private final String inputAverageStreamId;
-        private final String inputMedianStreamId;
-        private final String inputFieldWindowSize;
-        private final String inputFieldSliceIndex;
-        private final String inputFieldHouseId;
-        private final String inputFieldCurrentAverage;
-        private final String inputFieldArchiveMedian;
         private final long minimumDatasetTimestampSeconds;
 
         private BoltHouseForecastConfig(Map<String, Object> config) {
@@ -793,16 +458,9 @@ public class StormConfig {
             this.insertSql = readString(
                 config,
                 "insert-sql",
-                "INSERT INTO %s (window_size, slice_index, house_id, forecast_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
+                "INSERT INTO %s (window_size, timestamp, house_id, forecast_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
             );
             this.tableName = readString(config, "table-name", "house_forecast");
-            this.inputAverageStreamId = readString(config, "input-average-stream-id", "current-house-average");
-            this.inputMedianStreamId = readString(config, "input-median-stream-id", "archive-house-median");
-            this.inputFieldWindowSize = readString(config, "input-field-window-size", "windowSize");
-            this.inputFieldSliceIndex = readString(config, "input-field-slice-index", "sliceIndex");
-            this.inputFieldHouseId = readString(config, "input-field-house-id", "houseId");
-            this.inputFieldCurrentAverage = readString(config, "input-field-current-average", "currentAverage");
-            this.inputFieldArchiveMedian = readString(config, "input-field-archive-median", "archiveMedian");
             this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
         }
 
@@ -824,34 +482,6 @@ public class StormConfig {
 
         public String getTableName() {
             return tableName;
-        }
-
-        public String getInputAverageStreamId() {
-            return inputAverageStreamId;
-        }
-
-        public String getInputMedianStreamId() {
-            return inputMedianStreamId;
-        }
-
-        public String getInputFieldWindowSize() {
-            return inputFieldWindowSize;
-        }
-
-        public String getInputFieldSliceIndex() {
-            return inputFieldSliceIndex;
-        }
-
-        public String getInputFieldHouseId() {
-            return inputFieldHouseId;
-        }
-
-        public String getInputFieldCurrentAverage() {
-            return inputFieldCurrentAverage;
-        }
-
-        public String getInputFieldArchiveMedian() {
-            return inputFieldArchiveMedian;
         }
 
         public long getMinimumDatasetTimestampSeconds() {

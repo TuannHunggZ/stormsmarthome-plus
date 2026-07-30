@@ -11,8 +11,10 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.Timestamp;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 
@@ -44,8 +46,8 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 
 	public Bolt_averagePersistence(StormConfig.BoltAveragePersistenceConfig config) {
 		Objects.requireNonNull(config, "config");
-		this.inputPlugStreamId = config.getInputPlugStreamId();
-		this.inputHouseStreamId = config.getInputHouseStreamId();
+		this.inputPlugStreamId = "current-plug-average";
+		this.inputHouseStreamId = "current-plug-average";
 		this.jdbcUrl = config.getJdbcUrl();
 		this.jdbcUser = config.getJdbcUser();
 		this.jdbcPassword = config.getJdbcPassword();
@@ -115,8 +117,10 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 	}
 
 	private void processPlugAverage(Tuple input) throws SQLException {
-		plugStatement.setInt(1, input.getIntegerByField("windowSize"));
-		plugStatement.setLong(2, input.getLongByField("sliceIndex"));
+		int windowSize = input.getIntegerByField("windowSize");
+		long timestamp = input.getLongByField("timestamp");
+		plugStatement.setInt(1, windowSize);
+		plugStatement.setTimestamp(2, toSqlTimestamp(timestamp));
 		plugStatement.setInt(3, input.getIntegerByField("houseId"));
 		plugStatement.setInt(4, input.getIntegerByField("householdId"));
 		plugStatement.setInt(5, input.getIntegerByField("plugId"));
@@ -130,8 +134,10 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 	}
 
 	private void processHouseAverage(Tuple input) throws SQLException {
-		houseStatement.setInt(1, input.getIntegerByField("windowSize"));
-		houseStatement.setLong(2, input.getLongByField("sliceIndex"));
+		int windowSize = input.getIntegerByField("windowSize");
+		long timestamp = input.getLongByField("timestamp");
+		houseStatement.setInt(1, windowSize);
+		houseStatement.setTimestamp(2, toSqlTimestamp(timestamp));
 		houseStatement.setInt(3, input.getIntegerByField("houseId"));
 		houseStatement.setDouble(4, input.getDoubleByField("currentAverage"));
 		houseStatement.addBatch();
@@ -201,5 +207,9 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 		} catch (SQLException exception) {
 			LOGGER.warn("Failed to close PostgreSQL resources cleanly", exception);
 		}
+	}
+
+	private Timestamp toSqlTimestamp(long epochSeconds) {
+		return Timestamp.from(Instant.ofEpochSecond(epochSeconds));
 	}
 }

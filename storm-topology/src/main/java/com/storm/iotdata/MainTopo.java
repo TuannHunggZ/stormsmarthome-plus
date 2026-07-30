@@ -22,7 +22,7 @@ public class MainTopo {
             String boltId = "bolt-average-" + windowSize + "m";
             BoltDeclarer boltDeclarer = builder.setBolt(
                 boltId,
-                new Bolt_average(stormConfig.getBoltAverageConfig(), windowSize),
+                new Bolt_average(windowSize),
                 1
             );
 
@@ -40,8 +40,8 @@ public class MainTopo {
             1
         );
 
-        String plugAverageStreamId = stormConfig.getBoltAverageConfig().getOutputPlugStreamId();
-        String houseAverageStreamId = stormConfig.getBoltAverageConfig().getOutputHouseStreamId();
+        String plugAverageStreamId = "current-plug-average";
+        String houseAverageStreamId = "current-house-average";
 
         for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
             String boltId = "bolt-average-" + windowSize + "m";
@@ -55,7 +55,7 @@ public class MainTopo {
             1
         );
 
-        String punctuationStreamPrefix = stormConfig.getBoltPlugMedianConfig().getInputStreamIdPrefix();
+        String punctuationStreamPrefix = "punctuation-";
         for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
             medianBolt.allGrouping("spout-data", punctuationStreamPrefix + windowSize + "m");
         }
@@ -66,7 +66,7 @@ public class MainTopo {
             1
         );
 
-        String housePunctuationStreamPrefix = stormConfig.getBoltHouseMedianConfig().getInputStreamIdPrefix();
+        String housePunctuationStreamPrefix = "punctuation-";
         for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
             houseMedianBolt.allGrouping("spout-data", housePunctuationStreamPrefix + windowSize + "m");
         }
@@ -77,21 +77,21 @@ public class MainTopo {
             1
         );
 
-        String houseForecastAverageStreamId = stormConfig.getBoltHouseForecastConfig().getInputAverageStreamId();
-        String houseForecastMedianStreamId = stormConfig.getBoltHouseForecastConfig().getInputMedianStreamId();
+        String houseForecastAverageStreamId = "current-house-average";
+        String houseForecastMedianStreamId = "archive-house-median";
 
         for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
             houseForecastBolt.fieldsGrouping(
                 "bolt-average-" + windowSize + "m",
                 houseForecastAverageStreamId,
-                new Fields("windowSize", "sliceIndex", "houseId")
+                new Fields("windowSize", "timestamp", "houseId")
             );
         }
 
         houseForecastBolt.fieldsGrouping(
             "bolt-house-median",
             houseForecastMedianStreamId,
-            new Fields("windowSize", "sliceIndex", "houseId")
+            new Fields("windowSize", "timestamp", "houseId")
         );
 
         BoltDeclarer forecastBolt = builder.setBolt(
@@ -100,21 +100,21 @@ public class MainTopo {
             1
         );
 
-        String inputAverageStreamId = stormConfig.getBoltPlugForecastConfig().getInputAverageStreamId();
-        String inputMedianStreamId = stormConfig.getBoltPlugForecastConfig().getInputMedianStreamId();
+        String inputAverageStreamId = "current-plug-average";
+        String inputMedianStreamId = "archive-plug-median";
 
         for (Integer windowSize : stormConfig.getTimeSlicesMinutes()) {
             forecastBolt.fieldsGrouping(
                 "bolt-average-" + windowSize + "m",
                 inputAverageStreamId,
-                new Fields("windowSize", "sliceIndex", "houseId", "householdId", "plugId")
+                new Fields("windowSize", "timestamp", "houseId", "householdId", "plugId")
             );
         }
 
         forecastBolt.fieldsGrouping(
             "bolt-plug-median",
             inputMedianStreamId,
-            new Fields("windowSize", "sliceIndex", "houseId", "householdId", "plugId")
+            new Fields("windowSize", "timestamp", "houseId", "householdId", "plugId")
         );
 
         Config config = new Config();

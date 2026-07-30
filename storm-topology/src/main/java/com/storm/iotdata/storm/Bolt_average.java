@@ -1,6 +1,5 @@
 package com.storm.iotdata.storm;
 
-import com.storm.iotdata.models.StormConfig;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
@@ -30,12 +29,12 @@ public class Bolt_average extends BaseRichBolt {
 	private final String inputFieldHouseholdId;
 	private final String inputFieldHouseId;
 	private final String inputFieldWindowSize;
-	private final String inputFieldSliceIndex;
+	private final String inputFieldTimestamp;
 
 	private final String outputPlugStreamId;
 	private final String outputHouseStreamId;
 	private final String outputFieldWindowSize;
-	private final String outputFieldSliceIndex;
+	private final String outputFieldTimestamp;
 	private final String outputFieldHouseId;
 	private final String outputFieldHouseholdId;
 	private final String outputFieldPlugId;
@@ -48,27 +47,25 @@ public class Bolt_average extends BaseRichBolt {
 	/**
 	 * Creates a bolt for a single punctuation window.
 	 *
-	 * @param boltAverageConfig Shared bolt configuration.
 	 * @param windowSizeMinutes Window size handled by this bolt, in minutes.
 	 */
-	public Bolt_average(StormConfig.BoltAverageConfig boltAverageConfig, int windowSizeMinutes) {
-		Objects.requireNonNull(boltAverageConfig, "boltAverageConfig");
+	public Bolt_average(int windowSizeMinutes) {
 
-		this.inputStreamData = boltAverageConfig.getInputStreamData();
-		this.inputFieldValue = boltAverageConfig.getInputFieldValue();
-		this.inputFieldPlugId = boltAverageConfig.getInputFieldPlugId();
-		this.inputFieldHouseholdId = boltAverageConfig.getInputFieldHouseholdId();
-		this.inputFieldHouseId = boltAverageConfig.getInputFieldHouseId();
-		this.inputFieldWindowSize = boltAverageConfig.getInputFieldWindowSize();
-		this.inputFieldSliceIndex = boltAverageConfig.getInputFieldSliceIndex();
-		this.outputPlugStreamId = boltAverageConfig.getOutputPlugStreamId();
-		this.outputHouseStreamId = boltAverageConfig.getOutputHouseStreamId();
-		this.outputFieldWindowSize = boltAverageConfig.getOutputFieldWindowSize();
-		this.outputFieldSliceIndex = boltAverageConfig.getOutputFieldSliceIndex();
-		this.outputFieldHouseId = boltAverageConfig.getOutputFieldHouseId();
-		this.outputFieldHouseholdId = boltAverageConfig.getOutputFieldHouseholdId();
-		this.outputFieldPlugId = boltAverageConfig.getOutputFieldPlugId();
-		this.outputFieldCurrentAverage = boltAverageConfig.getOutputFieldCurrentAverage();
+		this.inputStreamData = "data";
+		this.inputFieldValue = "value";
+		this.inputFieldPlugId = "plugId";
+		this.inputFieldHouseholdId = "householdId";
+		this.inputFieldHouseId = "houseId";
+		this.inputFieldWindowSize = "windowSize";
+		this.inputFieldTimestamp = "timestamp";
+		this.outputPlugStreamId = "current-plug-average";
+		this.outputHouseStreamId = "current-house-average";
+		this.outputFieldWindowSize = "windowSize";
+		this.outputFieldTimestamp = "timestamp";
+		this.outputFieldHouseId = "houseId";
+		this.outputFieldHouseholdId = "householdId";
+		this.outputFieldPlugId = "plugId";
+		this.outputFieldCurrentAverage = "currentAverage";
 
 		this.windowSizeMinutes = windowSizeMinutes;
 		this.accumulators = new HashMap<>();
@@ -112,7 +109,7 @@ public class Bolt_average extends BaseRichBolt {
 			outputPlugStreamId,
 			new Fields(
 				outputFieldWindowSize,
-				outputFieldSliceIndex,
+				outputFieldTimestamp,
 				outputFieldHouseId,
 				outputFieldHouseholdId,
 				outputFieldPlugId,
@@ -124,7 +121,7 @@ public class Bolt_average extends BaseRichBolt {
 			outputHouseStreamId,
 			new Fields(
 				outputFieldWindowSize,
-				outputFieldSliceIndex,
+				outputFieldTimestamp,
 				outputFieldHouseId,
 				outputFieldCurrentAverage
 			)
@@ -160,25 +157,25 @@ public class Bolt_average extends BaseRichBolt {
 
 	private void processPunctuation(Tuple input) {
 		int windowSize = input.getIntegerByField(inputFieldWindowSize);
-		long sliceIndex = input.getLongByField(inputFieldSliceIndex);
+		long timestamp = input.getLongByField(inputFieldTimestamp);
 
-		LOGGER.info("Received punctuation for window {}m sliceIndex {}", windowSize, sliceIndex);
-		LOGGER.info("Processing {} houses for window {}m sliceIndex {}", accumulators.size(), windowSize, sliceIndex);
+		LOGGER.info("Received punctuation for window {}m timestamp {}", windowSize, timestamp);
+		LOGGER.info("Processing {} houses for window {}m timestamp {}", accumulators.size(), windowSize, timestamp);
 
 		int emittedPlugCount = 0;
 		int emittedHouseCount = 0;
 
 		for (Map.Entry<Integer, Map<PlugKey, AverageAccumulator>> houseEntry : accumulators.entrySet()) {
-			emittedPlugCount += emitPlugAverages(windowSize, sliceIndex, houseEntry.getKey(), houseEntry.getValue());
-			emitHouseAverage(windowSize, sliceIndex, houseEntry.getKey(), houseEntry.getValue());
+			emittedPlugCount += emitPlugAverages(windowSize, timestamp, houseEntry.getKey(), houseEntry.getValue());
+			emitHouseAverage(windowSize, timestamp, houseEntry.getKey(), houseEntry.getValue());
 			emittedHouseCount += 1;
 		}
 
-		LOGGER.info("Emitted {} plug averages and {} house averages for window {}m sliceIndex {}", emittedPlugCount, emittedHouseCount, windowSize, sliceIndex);
+		LOGGER.info("Emitted {} plug averages and {} house averages for window {}m timestamp {}", emittedPlugCount, emittedHouseCount, windowSize, timestamp);
 		cleanupProcessedEvents();
 	}
 
-	private int emitPlugAverages(int windowSize, long sliceIndex, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
+	private int emitPlugAverages(int windowSize, long timestamp, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
 		int emittedCount = 0;
 
 		for (Map.Entry<PlugKey, AverageAccumulator> entry : houseAccumulators.entrySet()) {
@@ -189,7 +186,7 @@ public class Bolt_average extends BaseRichBolt {
 				outputPlugStreamId,
 				new Values(
 					windowSize,
-					sliceIndex,
+					timestamp,
 					houseId,
 					plugKey.householdId,
 					plugKey.plugId,
@@ -202,7 +199,7 @@ public class Bolt_average extends BaseRichBolt {
 		return emittedCount;
 	}
 
-	private void emitHouseAverage(int windowSize, long sliceIndex, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
+	private void emitHouseAverage(int windowSize, long timestamp, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
 		double houseAverage = 0.0d;
 
 		for (AverageAccumulator accumulator : houseAccumulators.values()) {
@@ -213,7 +210,7 @@ public class Bolt_average extends BaseRichBolt {
 			outputHouseStreamId,
 			new Values(
 				windowSize,
-				sliceIndex,
+				timestamp,
 				houseId,
 				houseAverage
 			)
