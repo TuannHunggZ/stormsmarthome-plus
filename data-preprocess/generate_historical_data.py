@@ -4,7 +4,7 @@ import os
 import random
 
 SECONDS_PER_DAY = 86400
-RANDOM_RANGE = 2.0
+RANDOM_RANGE = 1.0
 
 
 def find_max_id(input_file):
@@ -81,6 +81,9 @@ def write_history(input_file, max_id, days, output_file):
                 reader = csv.reader(fin)
 
                 for row in reader:
+
+                    if row[3] != "1":
+                        continue
 
                     value = max(
                         0.0,

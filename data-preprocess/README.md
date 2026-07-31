@@ -88,7 +88,7 @@ Với `--days N`, script tạo **2 file** trong `--output-dir`:
    Timestamp gốc được cộng thêm `N * 86400` giây (đẩy sang ngày `N+1`).
 
 2. **Dữ liệu lịch sử** — `historical_{basename}_day-1-{N}.csv`  
-   Sinh `N` ngày trước đó (`DayN` → `Day1`), mỗi giá trị dao động ngẫu nhiên trong khoảng `±2.0` so với ngày gốc (không âm). ID giảm dần từ `max_id - 1`.
+   Sinh `N` ngày trước đó (`DayN` → `Day1`), mỗi giá trị dao động ngẫu nhiên trong khoảng `±1.0` so với ngày gốc (không âm). ID giảm dần từ `max_id - 1`.
 
 ### Cách sử dụng
 
