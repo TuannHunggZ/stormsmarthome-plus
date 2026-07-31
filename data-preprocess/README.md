@@ -42,10 +42,22 @@ Ghép 5 file đầu tiên (`house-0.csv` → `house-4.csv`):
 python merge.py -n 5
 ```
 
+Kết quả mặc định sẽ được lưu tại:
+
+```text
+data-file/house-0-4.csv
+```
+
 Ghép toàn bộ 40 file:
 
 ```bash
 python merge.py -n 40
+```
+
+Kết quả mặc định:
+
+```text
+data-file/house-0-39.csv
 ```
 
 Chỉ định thư mục chứa dữ liệu:
@@ -54,7 +66,7 @@ Chỉ định thư mục chứa dữ liệu:
 python merge.py -n 40 --input-dir ../mqtt-publisher/data-file
 ```
 
-Chỉ định tên file đầu ra:
+Chỉ định file đầu ra:
 
 ```bash
 python merge.py -n 40 --output merged.csv
@@ -74,8 +86,7 @@ python merge.py -n 40 \
 |---------|------|
 | `-n`, `--num-files` | Số lượng file cần ghép (`house-0.csv` đến `house-(n-1).csv`) |
 | `-i`, `--input-dir` | Thư mục chứa các file đầu vào (mặc định: `../mqtt-publisher/data-file`) |
-| `-o`, `--output` | Tên file đầu ra (mặc định: `merged.csv`) |
-
+| `-o`, `--output` | Đường dẫn file đầu ra (mặc định: `data-file/house-0-(n-1).csv`) |
 ---
 
 ## 2. `generate_historical_data.py`

@@ -147,11 +147,18 @@ def main():
     parser.add_argument(
         "-o",
         "--output",
-        default="merged.csv",
         help="Output CSV file",
     )
 
     args = parser.parse_args()
+
+    if args.output is None:
+        args.output = os.path.join(
+            "data-file",
+            f"house-0-{args.num_files - 1}.csv",
+        )
+
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
     merge_files(
         input_dir=args.input_dir,
