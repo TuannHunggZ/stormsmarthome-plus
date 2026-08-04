@@ -20,7 +20,17 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - ./timescaledb/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./timescaledb/dump/iotdata.dump:/backup/iotdata.dump
+      - ./timescaledb/dump/restore.sh:/docker-entrypoint-initdb.d/restore.sh
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "psql -U postgres -d iotdata -tAc \"SELECT EXISTS (SELECT 1 FROM plug_forecast_expected LIMIT 1)\" | grep -q t"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   zookeeper:
     image: zookeeper:3.8.5
@@ -88,6 +98,9 @@ services:
       - grafana-data:/var/lib/grafana
     networks:
       storm_network:
+    depends_on:
+      timescaledb:
+        condition: service_healthy
 
 volumes:
   grafana-data:
