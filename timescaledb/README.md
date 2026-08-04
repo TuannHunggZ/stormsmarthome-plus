@@ -31,27 +31,27 @@ timescaledb/
 ┌─────────────────────────────────────────────────────────┐
 │  Data Preprocess (data-preprocess/)                     │
 │                                                         │
-│  merge.py  →  house-0-9.csv                            │
-│  generate_historical_data.py  →                        │
-│      house-0-9_day-4.csv                               │
-│      historical_house-0-9_day-1-3.csv                  │
+│  merge.py  →  house-0-9.csv                             │
+│  generate_historical_data.py  →                         │
+│      house-0-9_day-4.csv                                │
+│      historical_house-0-9_day-1-3.csv                   │
 └──────────────────────┬──────────────────────────────────┘
                        │  (mounted vào /import)
                        ▼
 ┌─────────────────────────────────────────────────────────┐
-│  timescaledb/init/  (docker-entrypoint-initdb.d)       │
+│  timescaledb/init/  (docker-entrypoint-initdb.d)        │
 │                                                         │
-│  01-init.sql           → Tạo schema (8 tables)         │
-│  02-load-data.sql      → COPY CSV → measurements       │
-│  03-generate-average.sql → Tính average (8 window)     │
-│  04-generate-forecast.sql → Tính forecast (8 window)   │
-│  99-finish.sql         → Đánh dấu hoàn tất             │
+│  01-init.sql           → Tạo schema (8 tables)          │
+│  02-load-data.sql      → COPY CSV → measurements        │
+│  03-generate-average.sql → Tính average (8 window)      │
+│  04-generate-forecast.sql → Tính forecast (8 window)    │
+│  99-finish.sql         → Đánh dấu hoàn tất              │
 └──────────────────────┬──────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────┐
-│  pg_dump  →  iotdata.dump                              │
-│  (backup nhị phân, dùng cho các lần khởi động sau)    │
+│  pg_dump  →  iotdata.dump                               │
+│  (backup nhị phân, dùng cho các lần khởi động sau)      │
 └─────────────────────────────────────────────────────────┘
 ```
 
