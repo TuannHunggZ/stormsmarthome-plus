@@ -14,6 +14,3 @@ supervisor.slots.ports:
   - 6701
   - 6702
   - 6703
-
-supervisor.scheduler.meta: 
-  tags: cloud
