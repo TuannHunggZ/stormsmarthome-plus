@@ -3,3 +3,4 @@ mqtt-publisher/node_modules/
 storm-topology/target/
 data-preprocess/data-file/
 data-preprocess/venv/
+timescaledb/dump/iotdata.dump

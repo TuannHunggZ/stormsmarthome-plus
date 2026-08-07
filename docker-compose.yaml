@@ -86,7 +86,7 @@ services:
       storm_network:
 
   grafana:
-    image: grafana/grafana:12.1.9
+    image: grafana/grafana:13.0.3
     container_name: grafana
     hostname: grafana
     ports:
@@ -95,15 +95,13 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes: 
-      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     networks:
       storm_network:
     depends_on:
       timescaledb:
         condition: service_healthy
-
-volumes:
-  grafana-data:
 
 networks:
   storm_network:
