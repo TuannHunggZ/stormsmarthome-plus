@@ -65,18 +65,15 @@ public class Spout_data extends BaseRichSpout {
 
 	/**
 	 * Creates a spout from the loaded Storm configuration.
-	 *
-	 * @param spoutDataConfig Loaded spout data configuration.
-	 * @param timeSliceMinutes List of time slice minutes.
 	 */
-	public Spout_data(StormConfig.SpoutDataConfig spoutDataConfig, List<Integer> timeSliceMinutes) {
-		this.timeSliceMinutes = timeSliceMinutes;
+	public Spout_data() {
+		this.timeSliceMinutes = StormConfig.getTimeSliceMinutes();
 		this.punctuationStreamIds = buildPunctuationStreamIds(this.timeSliceMinutes);
-		this.brokerUri = spoutDataConfig.getBrokerUri();
-		this.topic = spoutDataConfig.getBrokerTopic();
-		this.qos = spoutDataConfig.getQos();
-		this.maxEmitPerNextTuple = spoutDataConfig.getMaxEmitPerNextTuple();
-		this.queueCapacity = spoutDataConfig.getQueueCapacity();
+		this.brokerUri = StormConfig.getBrokerUri();
+		this.topic = StormConfig.getBrokerTopic();
+		this.qos = StormConfig.getQos();
+		this.maxEmitPerNextTuple = StormConfig.getMaxEmitPerNextTuple();
+		this.queueCapacity = StormConfig.getQueueCapacity();
 		this.streamIdData = "data";
 		this.fieldId = "id";
 		this.fieldTimestamp = "timestamp";
@@ -85,8 +82,8 @@ public class Spout_data extends BaseRichSpout {
 		this.fieldHouseholdId = "householdId";
 		this.fieldHouseId = "houseId";
 		this.fieldWindowSize = "windowSize";
-		this.propertyLoad = spoutDataConfig.getPropertyLoad();
-		this.connectionTimeoutSeconds = spoutDataConfig.getConnectionTimeoutSeconds();
+		this.propertyLoad = StormConfig.getPropertyLoad();
+		this.connectionTimeoutSeconds = StormConfig.getConnectionTimeoutSeconds();
 		this.eventQueue = new LinkedBlockingQueue<>(this.queueCapacity);
 	}
 

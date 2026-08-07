@@ -49,16 +49,13 @@ public class Bolt_houseForecast extends BaseRichBolt {
 
 	/**
 	 * Creates the bolt with configured stream ids and field mappings.
-	 *
-	 * @param config Shared bolt configuration.
 	 */
-	public Bolt_houseForecast(StormConfig.BoltHouseForecastConfig config) {
-		Objects.requireNonNull(config, "config");
-		this.jdbcUrl = config.getJdbcUrl();
-		this.jdbcUser = config.getJdbcUser();
-		this.jdbcPassword = config.getJdbcPassword();
-		this.tableName = config.getTableName();
-		this.insertSql = String.format(config.getInsertSql(), tableName);
+	public Bolt_houseForecast() {
+		this.jdbcUrl = StormConfig.getJdbcUrl();
+		this.jdbcUser = StormConfig.getJdbcUser();
+		this.jdbcPassword = StormConfig.getJdbcPassword();
+		this.tableName = StormConfig.getHouseForecastTableName();
+		this.insertSql = String.format(StormConfig.getHouseForecastInsertSql(), tableName);
 		this.inputAverageStreamId = "current-house-average";
 		this.inputMedianStreamId = "archive-house-median";
 		this.inputFieldWindowSize = "windowSize";
@@ -66,7 +63,7 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		this.inputFieldHouseId = "houseId";
 		this.inputFieldCurrentAverage = "currentAverage";
 		this.inputFieldArchiveMedian = "archiveMedian";
-		this.minimumDatasetTimestampSeconds = config.getMinimumDatasetTimestampSeconds();
+		this.minimumDatasetTimestampSeconds = StormConfig.getMinimumDatasetTimestampSeconds();
 		this.forecastStates = new HashMap<>();
 	}
 

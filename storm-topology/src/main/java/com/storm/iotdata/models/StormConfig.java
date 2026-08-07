@@ -1,491 +1,200 @@
 package com.storm.iotdata.models;
 
-import org.yaml.snakeyaml.Yaml;
-
-import java.io.InputStream;
-import java.util.Collections;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 public class StormConfig {
-    private static final String DEFAULT_CONFIG_RESOURCE = "config/conf.yaml";
-    private static final String TIME_SLICES_KEY = "timeslices";
-    private static final String SPOUT_DATA_SECTION = "spout-data";
-    private static final String BOLT_AVERAGE_PERSISTENCE_SECTION = "bolt-average-persistence";
-    private static final String BOLT_PLUG_MEDIAN_SECTION = "bolt-plug-median";
-    private static final String BOLT_HOUSE_MEDIAN_SECTION = "bolt-house-median";
-    private static final String BOLT_PLUG_FORECAST_SECTION = "bolt-plug-forecast";
-    private static final String BOLT_HOUSE_FORECAST_SECTION = "bolt-house-forecast";
 
-    private final List<Integer> timeSlicesMinutes;
-    private final SpoutDataConfig spoutDataConfig;
-    private final BoltAveragePersistenceConfig boltAveragePersistenceConfig;
-    private final BoltPlugMedianConfig boltPlugMedianConfig;
-    private final BoltHouseMedianConfig boltHouseMedianConfig;
-    private final BoltPlugForecastConfig boltPlugForecastConfig;
-    private final BoltHouseForecastConfig boltHouseForecastConfig;
+    // =====================================================================
+    // TIME SLICES (Punctuation Generation)
+    // =====================================================================
+    // Window sizes, in minutes, used to generate punctuation events
+    // across the topology. Each value defines a separate punctuation stream.
+    private static final List<Integer> timeSliceMinutes = Arrays.asList(1, 5, 10, 15, 20, 30, 60, 120);
 
-    public StormConfig() {
-        this(loadConfigMap());
+    public static List<Integer> getTimeSliceMinutes() {
+        return timeSliceMinutes;
     }
 
-    private StormConfig(Map<String, Object> config) {
-        this.timeSlicesMinutes = readIntegerList(config, TIME_SLICES_KEY);
-        this.spoutDataConfig = new SpoutDataConfig(
-            readSection(config, SPOUT_DATA_SECTION)
-        );
-        this.boltAveragePersistenceConfig = new BoltAveragePersistenceConfig(
-            readSection(config, BOLT_AVERAGE_PERSISTENCE_SECTION)
-        );
-        this.boltPlugMedianConfig = new BoltPlugMedianConfig(
-            readSection(config, BOLT_PLUG_MEDIAN_SECTION)
-        );
-        this.boltHouseMedianConfig = new BoltHouseMedianConfig(
-            readSection(config, BOLT_HOUSE_MEDIAN_SECTION)
-        );
-        this.boltPlugForecastConfig = new BoltPlugForecastConfig(
-            readSection(config, BOLT_PLUG_FORECAST_SECTION)
-        );
-        this.boltHouseForecastConfig = new BoltHouseForecastConfig(
-            readSection(config, BOLT_HOUSE_FORECAST_SECTION)
-        );
+    // =====================================================================
+    // DATABASE CONFIGURATION
+    // =====================================================================
+    // JDBC URL for PostgreSQL.
+    private static final String jdbcUrl = "jdbc:postgresql://timescaledb:5432/iotdata";
+
+    // PostgreSQL username.
+    private static final String jdbcUser = "postgres";
+
+    // PostgreSQL password.
+    private static final String jdbcPassword = "postgres";
+
+    // Target table for plug averages.
+    private static final String plugAverageTableName = "plug_average";
+
+    // Target table for house averages.
+    private static final String houseAverageTableName = "house_average";
+
+    // Target table for plug forecasts.
+    private static final String plugForecastTableName = "plug_forecast";
+
+    // Target table for house forecasts.
+    private static final String houseForecastTableName = "house_forecast";
+
+    // Lower bound of the dataset in unix timestamp seconds.
+    private static final long minimumDatasetTimestampSeconds = 1377986401L;
+
+    public static String getJdbcUrl() {
+        return jdbcUrl;
     }
 
-    public SpoutDataConfig getSpoutDataConfig() {
-        return spoutDataConfig;
+    public static String getJdbcUser() {
+        return jdbcUser;
     }
 
-    public List<Integer> getTimeSlicesMinutes() {
-        return timeSlicesMinutes;
+    public static String getJdbcPassword() {
+        return jdbcPassword;
     }
 
-    public BoltAveragePersistenceConfig getBoltAveragePersistenceConfig() {
-        return boltAveragePersistenceConfig;
+    public static String getPlugAverageTableName() {
+        return plugAverageTableName;
     }
 
-    public BoltPlugMedianConfig getBoltPlugMedianConfig() {
-        return boltPlugMedianConfig;
+    public static String getHouseAverageTableName() {
+        return houseAverageTableName;
     }
 
-    public BoltHouseMedianConfig getBoltHouseMedianConfig() {
-        return boltHouseMedianConfig;
+    public static String getPlugForecastTableName() {
+        return plugForecastTableName;
     }
 
-    public BoltPlugForecastConfig getBoltPlugForecastConfig() {
-        return boltPlugForecastConfig;
+    public static String getHouseForecastTableName() {
+        return houseForecastTableName;
     }
 
-    public BoltHouseForecastConfig getBoltHouseForecastConfig() {
-        return boltHouseForecastConfig;
+    public static long getMinimumDatasetTimestampSeconds() {
+        return minimumDatasetTimestampSeconds;
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> loadConfigMap() {
-        Yaml yaml = new Yaml();
+    // =====================================================================
+    // SPOUT-DATA
+    // =====================================================================
+    // MQTT broker URI that the spout connects to.
+    private static final String brokerUri = "tcp://mqtt-broker:1883";
 
-        try (InputStream inputStream = StormConfig.class.getClassLoader().getResourceAsStream(DEFAULT_CONFIG_RESOURCE)) {
-            if (inputStream == null) {
-                throw new IllegalStateException("Missing config resource: " + DEFAULT_CONFIG_RESOURCE);
-            }
+    // MQTT topic consumed by the spout.
+    private static final String brokerTopic = "iot-data";
 
-            Object loaded = yaml.load(inputStream);
-            if (loaded == null) {
-                return Collections.emptyMap();
-            }
+    // MQTT subscription QoS used by the spout.
+    private static final int qos = 0;
 
-            if (!(loaded instanceof Map)) {
-                throw new IllegalStateException("Invalid config format in " + DEFAULT_CONFIG_RESOURCE);
-            }
+    // Maximum number of stream events emitted by one nextTuple() call.
+    private static final int maxEmitPerNextTuple = 100;
 
-            return (Map<String, Object>) loaded;
-        } catch (Exception exception) {
-            throw new IllegalStateException("Unable to load storm config from " + DEFAULT_CONFIG_RESOURCE, exception);
-        }
+    // Maximum number of stream events buffered before new messages are dropped.
+    private static final int queueCapacity = 10000;
+
+    // Storm stream id used for data tuples.
+    private static final String streamIdData = "data";
+
+    // MQTT property value that identifies a load event.
+    private static final int propertyLoad = 1;
+
+    // MQTT connection timeout in seconds.
+    private static final int connectionTimeoutSeconds = 10;
+
+    public static String getBrokerUri() {
+        return brokerUri;
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> readSection(Map<String, Object> config, String sectionName) {
-        Object section = config.get(sectionName);
-        if (section == null) {
-            return Collections.emptyMap();
-        }
-
-        if (!(section instanceof Map)) {
-            throw new IllegalStateException("Invalid config section: " + sectionName);
-        }
-
-        return (Map<String, Object>) section;
+    public static String getBrokerTopic() {
+        return brokerTopic;
     }
 
-    private static String readString(Map<String, Object> config, String key, String defaultValue) {
-        Object value = config.get(key);
-        if (value == null) {
-            return defaultValue;
-        }
-
-        String text = value.toString().trim();
-        return text.isEmpty() ? defaultValue : text;
+    public static int getQos() {
+        return qos;
     }
 
-    private static int readInt(Map<String, Object> config, String key, int defaultValue) {
-        Object value = config.get(key);
-        if (value == null) {
-            return defaultValue;
-        }
-
-        try {
-            return Integer.parseInt(value.toString().trim());
-        } catch (NumberFormatException exception) {
-            throw new IllegalStateException("Invalid integer config value for key: " + key, exception);
-        }
+    public static int getMaxEmitPerNextTuple() {
+        return maxEmitPerNextTuple;
     }
 
-    private static long readLong(Map<String, Object> config, String key, long defaultValue) {
-        Object value = config.get(key);
-        if (value == null) {
-            return defaultValue;
-        }
-
-        try {
-            return Long.parseLong(value.toString().trim());
-        } catch (NumberFormatException exception) {
-            throw new IllegalStateException("Invalid long config value for key: " + key, exception);
-        }
+    public static int getQueueCapacity() {
+        return queueCapacity;
     }
 
-    private static List<Integer> readIntegerList(Map<String, Object> config, String key) {
-        Object value = config.get(key);
-        if (value == null) {
-            throw new IllegalStateException("Missing config list: " + key);
-        }
-
-        if (!(value instanceof Iterable)) {
-            throw new IllegalStateException("Invalid config list for key: " + key);
-        }
-
-        List<Integer> result = new ArrayList<>();
-        for (Object element : (Iterable<?>) value) {
-            try {
-                int parsed = Integer.parseInt(element.toString().trim());
-                if (parsed <= 0) {
-                    throw new IllegalStateException("Config list values must be positive: " + key);
-                }
-                result.add(parsed);
-            } catch (NumberFormatException exception) {
-                throw new IllegalStateException("Invalid integer in config list: " + key, exception);
-            }
-        }
-
-        if (result.isEmpty()) {
-            throw new IllegalStateException("Config list must not be empty: " + key);
-        }
-
-        Collections.sort(result);
-
-        List<Integer> deduplicated = new ArrayList<>();
-        Integer previous = null;
-        for (Integer slice : result) {
-            if (!slice.equals(previous)) {
-                deduplicated.add(slice);
-                previous = slice;
-            }
-        }
-
-        return Collections.unmodifiableList(deduplicated);
+    public static String getStreamIdData() {
+        return streamIdData;
     }
 
-    public static final class SpoutDataConfig {
-
-        private final String brokerUri;
-        private final String brokerTopic;
-        private final int qos;
-        private final int maxEmitPerNextTuple;
-        private final int queueCapacity;
-        private final String streamIdData;
-        private final int propertyLoad;
-        private final int connectionTimeoutSeconds;
-
-        private SpoutDataConfig(Map<String, Object> config) {
-            this.brokerUri = readString(config, "broker-uri", "tcp://mqtt-broker:1883");
-            this.brokerTopic = readString(config, "broker-topic", "iotdata");
-            this.qos = readInt(config, "qos", 0);
-            this.maxEmitPerNextTuple = readInt(config, "max-emit-per-next-tuple", 100);
-            this.queueCapacity = readInt(config, "queue-capacity", 10_000);
-            this.streamIdData = readString(config, "stream-id-data", "data");
-            this.propertyLoad = readInt(config, "property-load", 1);
-            this.connectionTimeoutSeconds = readInt(config, "connection-timeout-seconds", 10);
-        }
-
-        public String getBrokerUri() {
-            return brokerUri;
-        }
-
-        public String getBrokerTopic() {
-            return brokerTopic;
-        }
-
-        public int getQos() {
-            return qos;
-        }
-
-        public int getMaxEmitPerNextTuple() {
-            return maxEmitPerNextTuple;
-        }
-
-        public int getQueueCapacity() {
-            return queueCapacity;
-        }
-
-        public String getStreamIdData() {
-            return streamIdData;
-        }
-
-        public int getPropertyLoad() {
-            return propertyLoad;
-        }
-
-        public int getConnectionTimeoutSeconds() {
-            return connectionTimeoutSeconds;
-        }
+    public static int getPropertyLoad() {
+        return propertyLoad;
     }
 
-    public static final class BoltAveragePersistenceConfig {
-
-        private final String jdbcUrl;
-        private final String jdbcUser;
-        private final String jdbcPassword;
-        private final int batchSize;
-        private final String plugTableName;
-        private final String houseTableName;
-        private final String plugInsertSql;
-        private final String houseInsertSql;
-
-        private BoltAveragePersistenceConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
-            this.jdbcUser = readString(config, "jdbc-user", "postgres");
-            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
-            this.batchSize = readInt(config, "batch-size", 1000);
-            this.plugTableName = readString(config, "plug-table-name", "plug_average");
-            this.houseTableName = readString(config, "house-table-name", "house_average");
-            this.plugInsertSql = readString(
-                config,
-                "plug-insert-sql",
-                "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
-            );
-            this.houseInsertSql = readString(
-                config,
-                "house-insert-sql",
-                "INSERT INTO %s (window_size, timestamp, house_id, average_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
-            );
-        }
-
-        public String getJdbcUrl() {
-            return jdbcUrl;
-        }
-
-        public String getJdbcUser() {
-            return jdbcUser;
-        }
-
-        public String getJdbcPassword() {
-            return jdbcPassword;
-        }
-
-        public int getBatchSize() {
-            return batchSize;
-        }
-
-        public String getPlugTableName() {
-            return plugTableName;
-        }
-
-        public String getHouseTableName() {
-            return houseTableName;
-        }
-
-        public String getPlugInsertSql() {
-            return plugInsertSql;
-        }
-
-        public String getHouseInsertSql() {
-            return houseInsertSql;
-        }
+    public static int getConnectionTimeoutSeconds() {
+        return connectionTimeoutSeconds;
     }
 
-    public static final class BoltPlugMedianConfig {
+    // =====================================================================
+    // BOLT-AVERAGE-PERSISTENCE
+    // =====================================================================
+    // Number of records to buffer before flushing a batch.
+    private static final int batchSize = 1000;
 
-        private final String jdbcUrl;
-        private final String jdbcUser;
-        private final String jdbcPassword;
-        private final String selectSqlTemplate;
-        private final long minimumDatasetTimestampSeconds;
+    // SQL template for plug inserts.
+    private static final String plugAverageInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
-        private BoltPlugMedianConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
-            this.jdbcUser = readString(config, "jdbc-user", "postgres");
-            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
-            this.selectSqlTemplate = readString(
-                config,
-                "select-sql-template",
-                "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND timestamp = ?"
-            );
-            this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
-        }
+    // SQL template for house inserts.
+    private static final String houseAverageInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, average_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
-        public String getJdbcUrl() {
-            return jdbcUrl;
-        }
-
-        public String getJdbcUser() {
-            return jdbcUser;
-        }
-
-        public String getJdbcPassword() {
-            return jdbcPassword;
-        }
-
-        public String getSelectSqlTemplate() {
-            return selectSqlTemplate;
-        }
-
-        public long getMinimumDatasetTimestampSeconds() {
-            return minimumDatasetTimestampSeconds;
-        }
+    public static int getBatchSize() {
+        return batchSize;
     }
 
-    public static final class BoltHouseMedianConfig {
-
-        private final String jdbcUrl;
-        private final String jdbcUser;
-        private final String jdbcPassword;
-        private final String selectSqlTemplate;
-        private final long minimumDatasetTimestampSeconds;
-
-        private BoltHouseMedianConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
-            this.jdbcUser = readString(config, "jdbc-user", "postgres");
-            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
-            this.selectSqlTemplate = readString(
-                config,
-                "select-sql-template",
-                "SELECT house_id, average_load FROM %s WHERE window_size = ? AND timestamp = ?"
-            );
-            this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
-        }
-
-        public String getJdbcUrl() {
-            return jdbcUrl;
-        }
-
-        public String getJdbcUser() {
-            return jdbcUser;
-        }
-
-        public String getJdbcPassword() {
-            return jdbcPassword;
-        }
-
-        public String getSelectSqlTemplate() {
-            return selectSqlTemplate;
-        }
-
-        public long getMinimumDatasetTimestampSeconds() {
-            return minimumDatasetTimestampSeconds;
-        }
+    public static String getPlugAverageInsertSql() {
+        return plugAverageInsertSql;
     }
 
-    public static final class BoltPlugForecastConfig {
-
-        private final String jdbcUrl;
-        private final String jdbcUser;
-        private final String jdbcPassword;
-        private final String insertSql;
-        private final String tableName;
-        private final long minimumDatasetTimestampSeconds;
-
-        private BoltPlugForecastConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
-            this.jdbcUser = readString(config, "jdbc-user", "postgres");
-            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
-            this.insertSql = readString(
-                config,
-                "insert-sql",
-                "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, forecast_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING"
-            );
-            this.tableName = readString(config, "table-name", "plug_forecast");
-            this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
-        }
-
-        public String getJdbcUrl() {
-            return jdbcUrl;
-        }
-
-        public String getJdbcUser() {
-            return jdbcUser;
-        }
-
-        public String getJdbcPassword() {
-            return jdbcPassword;
-        }
-
-        public String getInsertSql() {
-            return insertSql;
-        }
-
-        public String getTableName() {
-            return tableName;
-        }
-
-        public long getMinimumDatasetTimestampSeconds() {
-            return minimumDatasetTimestampSeconds;
-        }
+    public static String getHouseAverageInsertSql() {
+        return houseAverageInsertSql;
     }
 
-    public static final class BoltHouseForecastConfig {
+    // =====================================================================
+    // BOLT-PLUG-MEDIAN
+    // =====================================================================
+    // SQL template used to query historical plug averages.
+    private static final String plugMedianSelectSqlTemplate = "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND timestamp = ?";
 
-        private final String jdbcUrl;
-        private final String jdbcUser;
-        private final String jdbcPassword;
-        private final String insertSql;
-        private final String tableName;
-        private final long minimumDatasetTimestampSeconds;
+    public static String getPlugMedianSelectSqlTemplate() {
+        return plugMedianSelectSqlTemplate;
+    }
 
-        private BoltHouseForecastConfig(Map<String, Object> config) {
-            this.jdbcUrl = readString(config, "jdbc-url", "jdbc:postgresql://timescaledb:5432/iotdata");
-            this.jdbcUser = readString(config, "jdbc-user", "postgres");
-            this.jdbcPassword = readString(config, "jdbc-password", "postgres");
-            this.insertSql = readString(
-                config,
-                "insert-sql",
-                "INSERT INTO %s (window_size, timestamp, house_id, forecast_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING"
-            );
-            this.tableName = readString(config, "table-name", "house_forecast");
-            this.minimumDatasetTimestampSeconds = readLong(config, "minimum-dataset-timestamp-seconds", 1_377_986_401L);
-        }
+    // =====================================================================
+    // BOLT-HOUSE-MEDIAN
+    // =====================================================================
+    // SQL template used to query historical house averages.
+    private static final String houseMedianSelectSqlTemplate = "SELECT house_id, average_load FROM %s WHERE window_size = ? AND timestamp = ?";
 
-        public String getJdbcUrl() {
-            return jdbcUrl;
-        }
+    public static String getHouseMedianSelectSqlTemplate() {
+        return houseMedianSelectSqlTemplate;
+    }
 
-        public String getJdbcUser() {
-            return jdbcUser;
-        }
+    // =====================================================================
+    // BOLT-PLUG-FORECAST
+    // =====================================================================
+    // SQL template for plug forecast inserts.
+    private static final String plugForecastInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, forecast_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
-        public String getJdbcPassword() {
-            return jdbcPassword;
-        }
+    public static String getPlugForecastInsertSql() {
+        return plugForecastInsertSql;
+    }
 
-        public String getInsertSql() {
-            return insertSql;
-        }
+    // =====================================================================
+    // BOLT-HOUSE-FORECAST
+    // =====================================================================
+    // SQL template for house forecast inserts.
+    private static final String houseForecastInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, forecast_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
-        public String getTableName() {
-            return tableName;
-        }
-
-        public long getMinimumDatasetTimestampSeconds() {
-            return minimumDatasetTimestampSeconds;
-        }
+    public static String getHouseForecastInsertSql() {
+        return houseForecastInsertSql;
     }
 }

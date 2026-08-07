@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Bolt that computes historical median load per house using house_average.
@@ -57,21 +56,20 @@ public class Bolt_houseMedian extends BaseRichBolt {
 	 *
 	 * @param config Shared bolt configuration.
 	 */
-	public Bolt_houseMedian(StormConfig.BoltHouseMedianConfig config) {
-		Objects.requireNonNull(config, "config");
+	public Bolt_houseMedian() {
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
-		this.jdbcUrl = config.getJdbcUrl();
-		this.jdbcUser = config.getJdbcUser();
-		this.jdbcPassword = config.getJdbcPassword();
-		this.selectSqlTemplate = config.getSelectSqlTemplate();
+		this.jdbcUrl = StormConfig.getJdbcUrl();
+		this.jdbcUser = StormConfig.getJdbcUser();
+		this.jdbcPassword = StormConfig.getJdbcPassword();
+		this.selectSqlTemplate = StormConfig.getHouseMedianSelectSqlTemplate();
 		this.inputStreamIdPrefix = "punctuation-";
 		this.outputStreamId = "archive-house-median";
 		this.outputFieldWindowSize = "windowSize";
 		this.outputFieldTimestamp = "timestamp";
 		this.outputFieldHouseId = "houseId";
 		this.outputFieldArchiveMedian = "archiveMedian";
-		this.minimumDatasetTimestampSeconds = config.getMinimumDatasetTimestampSeconds();
+		this.minimumDatasetTimestampSeconds = StormConfig.getMinimumDatasetTimestampSeconds();
 	}
 
 	@Override

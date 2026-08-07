@@ -16,7 +16,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Sink bolt that batches plug and house averages into PostgreSQL.
@@ -44,18 +43,17 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 	private int plugBatchCount;
 	private int houseBatchCount;
 
-	public Bolt_averagePersistence(StormConfig.BoltAveragePersistenceConfig config) {
-		Objects.requireNonNull(config, "config");
+	public Bolt_averagePersistence() {
 		this.inputPlugStreamId = "current-plug-average";
 		this.inputHouseStreamId = "current-house-average";
-		this.jdbcUrl = config.getJdbcUrl();
-		this.jdbcUser = config.getJdbcUser();
-		this.jdbcPassword = config.getJdbcPassword();
-		this.batchSize = config.getBatchSize() > 0 ? config.getBatchSize() : BATCH_SIZE;
-		this.plugTableName = config.getPlugTableName();
-		this.houseTableName = config.getHouseTableName();
-		this.plugInsertSql = String.format(config.getPlugInsertSql(), plugTableName);
-		this.houseInsertSql = String.format(config.getHouseInsertSql(), houseTableName);
+		this.jdbcUrl = StormConfig.getJdbcUrl();
+		this.jdbcUser = StormConfig.getJdbcUser();
+		this.jdbcPassword = StormConfig.getJdbcPassword();
+		this.batchSize = StormConfig.getBatchSize() > 0 ? StormConfig.getBatchSize() : BATCH_SIZE;
+		this.plugTableName = StormConfig.getPlugAverageTableName();
+		this.houseTableName = StormConfig.getHouseAverageTableName();
+		this.plugInsertSql = String.format(StormConfig.getPlugAverageInsertSql(), plugTableName);
+		this.houseInsertSql = String.format(StormConfig.getHouseAverageInsertSql(), houseTableName);
 	}
 
 	@Override

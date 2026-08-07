@@ -51,16 +51,13 @@ public class Bolt_plugForecast extends BaseRichBolt {
 
 	/**
 	 * Creates the bolt with configured stream ids and field mappings.
-	 *
-	 * @param config Shared bolt configuration.
 	 */
-	public Bolt_plugForecast(StormConfig.BoltPlugForecastConfig config) {
-		Objects.requireNonNull(config, "config");
-		this.jdbcUrl = config.getJdbcUrl();
-		this.jdbcUser = config.getJdbcUser();
-		this.jdbcPassword = config.getJdbcPassword();
-		this.tableName = config.getTableName();
-		this.insertSql = String.format(config.getInsertSql(), tableName);
+	public Bolt_plugForecast() {
+		this.jdbcUrl = StormConfig.getJdbcUrl();
+		this.jdbcUser = StormConfig.getJdbcUser();
+		this.jdbcPassword = StormConfig.getJdbcPassword();
+		this.tableName = StormConfig.getPlugForecastTableName();
+		this.insertSql = String.format(StormConfig.getPlugForecastInsertSql(), tableName);
 		this.inputAverageStreamId = "current-plug-average";
 		this.inputMedianStreamId = "archive-plug-median";
 		this.inputFieldWindowSize = "windowSize";
@@ -70,7 +67,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 		this.inputFieldPlugId = "plugId";
 		this.inputFieldCurrentAverage = "currentAverage";
 		this.inputFieldArchiveMedian = "archiveMedian";
-		this.minimumDatasetTimestampSeconds = config.getMinimumDatasetTimestampSeconds();
+		this.minimumDatasetTimestampSeconds = StormConfig.getMinimumDatasetTimestampSeconds();
 		this.forecastStates = new HashMap<>();
 	}
 

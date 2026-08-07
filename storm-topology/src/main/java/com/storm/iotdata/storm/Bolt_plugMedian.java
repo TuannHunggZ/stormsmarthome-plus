@@ -56,17 +56,14 @@ public class Bolt_plugMedian extends BaseRichBolt {
 
 	/**
 	 * Creates the bolt with configured SQL and field mappings.
-	 *
-	 * @param config Shared bolt configuration.
 	 */
-	public Bolt_plugMedian(StormConfig.BoltPlugMedianConfig config) {
-		Objects.requireNonNull(config, "config");
+	public Bolt_plugMedian() {
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
-		this.jdbcUrl = config.getJdbcUrl();
-		this.jdbcUser = config.getJdbcUser();
-		this.jdbcPassword = config.getJdbcPassword();
-		this.selectSqlTemplate = config.getSelectSqlTemplate();
+		this.jdbcUrl = StormConfig.getJdbcUrl();
+		this.jdbcUser = StormConfig.getJdbcUser();
+		this.jdbcPassword = StormConfig.getJdbcPassword();
+		this.selectSqlTemplate = StormConfig.getPlugMedianSelectSqlTemplate();
 		this.inputStreamIdPrefix = "punctuation-";
 		this.outputStreamId = "archive-plug-median";
 		this.outputFieldWindowSize = "windowSize";
@@ -75,7 +72,7 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		this.outputFieldHouseholdId = "householdId";
 		this.outputFieldPlugId = "plugId";
 		this.outputFieldArchiveMedian = "archiveMedian";
-		this.minimumDatasetTimestampSeconds = config.getMinimumDatasetTimestampSeconds();
+		this.minimumDatasetTimestampSeconds = StormConfig.getMinimumDatasetTimestampSeconds();
 	}
 
 	@Override
@@ -121,7 +118,7 @@ public class Bolt_plugMedian extends BaseRichBolt {
 	private void initializeDatabase() {
 		try {
 			connection = DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
-			selectStatement = connection.prepareStatement(String.format(selectSqlTemplate, "plug_average"));
+			selectStatement = connection.prepareStatement(String.format(selectSqlTemplate, StormConfig.getPlugAverageTableName()));
 			LOGGER.info("Connected to PostgreSQL successfully");
 		} catch (SQLException exception) {
 			throw new IllegalStateException("Unable to initialize PostgreSQL connection", exception);
