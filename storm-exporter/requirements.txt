@@ -1,0 +1,13 @@
+black
+certifi
+charset-normalizer
+click
+idna
+mypy-extensions
+packaging
+pathspec
+platformdirs
+prometheus_client
+python-dotenv
+requests
+urllib3

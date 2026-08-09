@@ -85,6 +85,34 @@ services:
     networks:
       storm_network:
 
+  storm-exporter:
+    image: stormexporter:v1
+    container_name: storm-exporter
+    pull_policy: never
+    environment:
+      - STORM_UI_HOST=nimbus:8080
+      - PORT_EXPOSE=8082
+      - REFRESH_RATE=5
+    networks:
+      storm_network:
+    restart: always
+    depends_on:
+      - nimbus
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    depends_on:
+      - storm-exporter
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - 9090:9090
+    networks:
+      - storm_network
+
   grafana:
     image: grafana/grafana:13.0.3
     container_name: grafana
