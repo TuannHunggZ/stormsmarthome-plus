@@ -166,8 +166,7 @@ public class Bolt_average extends BaseRichBolt {
 		int emittedHouseCount = 0;
 
 		for (Map.Entry<Integer, Map<PlugKey, AverageAccumulator>> houseEntry : accumulators.entrySet()) {
-			emittedPlugCount += emitPlugAverages(windowSize, timestamp, houseEntry.getKey(), houseEntry.getValue());
-			emitHouseAverage(windowSize, timestamp, houseEntry.getKey(), houseEntry.getValue());
+			emittedPlugCount += emitAverages(windowSize, timestamp, houseEntry.getKey(), houseEntry.getValue());
 			emittedHouseCount += 1;
 		}
 
@@ -175,13 +174,15 @@ public class Bolt_average extends BaseRichBolt {
 		cleanupProcessedEvents();
 	}
 
-	private int emitPlugAverages(int windowSize, long timestamp, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
-		int emittedCount = 0;
+	private int emitAverages(int windowSize, long timestamp, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
+		double houseAverage = 0.0d;
+    	int emittedPlugCount = 0;
 
 		for (Map.Entry<PlugKey, AverageAccumulator> entry : houseAccumulators.entrySet()) {
 			PlugKey plugKey = entry.getKey();
 			double currentAverage = entry.getValue().average();
 
+			// Emit plug average
 			collector.emit(
 				outputPlugStreamId,
 				new Values(
@@ -193,19 +194,14 @@ public class Bolt_average extends BaseRichBolt {
 					currentAverage
 				)
 			);
-			emittedCount += 1;
+
+			// Reuse the calculated plug average
+			houseAverage += currentAverage;
+
+			emittedPlugCount += 1;
 		}
 
-		return emittedCount;
-	}
-
-	private void emitHouseAverage(int windowSize, long timestamp, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
-		double houseAverage = 0.0d;
-
-		for (AverageAccumulator accumulator : houseAccumulators.values()) {
-			houseAverage += accumulator.average();
-		}
-
+		// Emit house average after processing all plugs
 		collector.emit(
 			outputHouseStreamId,
 			new Values(
@@ -215,6 +211,8 @@ public class Bolt_average extends BaseRichBolt {
 				houseAverage
 			)
 		);
+
+		return emittedPlugCount;
 	}
 
 	private void cleanupProcessedEvents() {
