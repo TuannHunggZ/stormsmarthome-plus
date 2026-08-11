@@ -47,6 +47,20 @@ public class MainTopo {
             persistenceBolt.allGrouping(boltId, houseAverageStreamId);
         }
 
+        BoltDeclarer anomalyDetectionBolt = builder.setBolt(
+            "bolt-plug-anomaly-detection",
+            new Bolt_plugAnomalyDetection(),
+            1
+        );
+
+        for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
+            anomalyDetectionBolt.fieldsGrouping(
+                "bolt-average-" + windowSize + "m",
+                plugAverageStreamId,
+                new Fields("windowSize", "houseId", "householdId", "plugId")
+            );
+        }
+
         BoltDeclarer medianBolt = builder.setBolt(
             "bolt-plug-median",
             new Bolt_plugMedian(),

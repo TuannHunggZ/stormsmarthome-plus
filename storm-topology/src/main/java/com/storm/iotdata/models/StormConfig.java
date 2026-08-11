@@ -76,6 +76,33 @@ public class StormConfig {
     }
 
     // =====================================================================
+    // ANOMALY DETECTION CONFIGURATION
+    // =====================================================================
+    // Threshold, in percent, used by anomaly detection bolts.
+    private static final int anomalyThresholdPercent = 20;
+
+    // Flags to enable/disable anomaly detection checks.
+    private static final boolean plugCheckMax = true;
+    private static final boolean plugCheckAvg = true;
+    private static final boolean plugCheckMin = true;
+
+    public static int getAnomalyThresholdPercent() {
+        return anomalyThresholdPercent;
+    }
+
+    public static boolean isPlugCheckMax() {
+        return plugCheckMax;
+    }
+
+    public static boolean isPlugCheckAvg() {
+        return plugCheckAvg;
+    }
+
+    public static boolean isPlugCheckMin() {
+        return plugCheckMin;
+    }
+
+    // =====================================================================
     // SPOUT-DATA
     // =====================================================================
     // MQTT broker URI that the spout connects to.
