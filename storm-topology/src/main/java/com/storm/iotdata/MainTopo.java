@@ -61,6 +61,20 @@ public class MainTopo {
             );
         }
 
+        BoltDeclarer houseAnomalyDetectionBolt = builder.setBolt(
+            "bolt-house-anomaly-detetion",
+            new Bolt_houseAnomalyDetetion(),
+            1
+        );
+
+        for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
+            houseAnomalyDetectionBolt.fieldsGrouping(
+                "bolt-average-" + windowSize + "m",
+                houseAverageStreamId,
+                new Fields("windowSize", "houseId")
+            );
+        }
+
         BoltDeclarer medianBolt = builder.setBolt(
             "bolt-plug-median",
             new Bolt_plugMedian(),

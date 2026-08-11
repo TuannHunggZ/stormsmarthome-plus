@@ -86,6 +86,11 @@ public class StormConfig {
     private static final boolean plugCheckAvg = true;
     private static final boolean plugCheckMin = true;
 
+    // Flags to enable/disable house anomaly detection checks.
+    private static final boolean houseCheckMax = true;
+    private static final boolean houseCheckAvg = true;  
+    private static final boolean houseCheckMin = true;
+
     public static int getAnomalyThresholdPercent() {
         return anomalyThresholdPercent;
     }
@@ -100,6 +105,18 @@ public class StormConfig {
 
     public static boolean isPlugCheckMin() {
         return plugCheckMin;
+    }
+
+    public static boolean isHouseCheckMax() {
+        return houseCheckMax;
+    }
+
+    public static boolean isHouseCheckAvg() {
+        return houseCheckAvg;
+    }
+
+    public static boolean isHouseCheckMin() {
+        return houseCheckMin;
     }
 
     // =====================================================================
