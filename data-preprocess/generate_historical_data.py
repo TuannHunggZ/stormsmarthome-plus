@@ -63,7 +63,7 @@ def write_history(input_file, max_id, days, output_file):
 
     random.seed(42)
 
-    current_id = max_id - 1
+    current_id = max_id + 1
 
     with open(output_file, "w", newline="") as fout:
 
@@ -103,7 +103,7 @@ def write_history(input_file, max_id, days, output_file):
                         row[6],
                     ])
 
-                    current_id -= 1
+                    current_id += 1
 
 
 def main():
