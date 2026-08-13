@@ -6,6 +6,7 @@ Các công cụ Python dùng để xử lý bộ dữ liệu **DEBS 2014** (`hou
 |--------|------|
 | `merge.py` | Ghép nhiều file `house-*.csv` thành một file CSV, giữ thứ tự theo `timestamp` |
 | `generate_historical_data.py` | Sinh dữ liệu lịch sử nhiều ngày từ một file `house-*.csv` |
+| `generate_full_day.py` | Mở rộng dữ liệu đến mốc thời gian kết thúc ngày cố định (`DAY_END_TIMESTAMP = 1378072799`), sinh thêm dữ liệu nếu chưa đủ |
 
 ## Yêu cầu
 
@@ -99,7 +100,7 @@ Với `--days N`, script tạo **2 file** trong `--output-dir`:
    Timestamp gốc được cộng thêm `N * 86400` giây (đẩy sang ngày `N+1`).
 
 2. **Dữ liệu lịch sử** — `historical_{basename}_day-1-{N}.csv`  
-   Sinh `N` ngày trước đó (`DayN` → `Day1`), mỗi giá trị dao động ngẫu nhiên trong khoảng `±1.0` so với ngày gốc (không âm). ID giảm dần từ `max_id - 1`.
+   Sinh `N` ngày trước đó (`DayN` → `Day1`), mỗi giá trị dao động ngẫu nhiên trong khoảng `±1.0` so với ngày gốc (không âm). ID tăng dần từ `max_id + 1`.
 
 ### Cách sử dụng
 
@@ -144,3 +145,47 @@ data-file/
 | `--input` | Đường dẫn file CSV đầu vào (bắt buộc) |
 | `--days` | Số ngày lịch sử cần sinh (bắt buộc) |
 | `--output-dir` | Thư mục chứa các file đầu ra (bắt buộc) |
+
+---
+
+## 3. `generate_full_day.py`
+
+Mở rộng dữ liệu từ một file `house-*.csv` đến mốc thời gian kết thúc ngày cố định **`DAY_END_TIMESTAMP = 1378072799`**.
+
+Script thực hiện:
+1. Đọc file đầu vào, tìm `min_timestamp`, `max_timestamp`, `max_id`
+2. Tính `duration = max_timestamp - min_timestamp + 1` (khoảng thời gian dữ liệu gốc bao phủ)
+3. Ghi toàn bộ dữ liệu gốc ra file đầu ra
+4. Sinh thêm dữ liệu bằng cách **copy dữ liệu gốc** và dịch `timestamp` thêm `duration` giây, lặp lại cho đến khi `timestamp > DAY_END_TIMESTAMP`
+5. Các cột `value, property, plug_id, household_id, house_id` giữ nguyên, chỉ `id` và `timestamp` thay đổi. `id` cấp mới tăng dần từ `max_id + 1`.
+
+Nếu dữ liệu gốc đã bao phủ đến `DAY_END_TIMESTAMP`, script chỉ copy nguyên file sang output.
+
+### Cách sử dụng
+
+Mở rộng `house-0.csv` đến hết ngày:
+
+```bash
+python generate_full_day.py --input ../mqtt-publisher/data-file/house-0.csv
+```
+
+Kết quả mặc định:
+
+```text
+data-file/house-0_full.csv
+```
+
+Chỉ định file đầu ra:
+
+```bash
+python generate_full_day.py \
+    --input ../mqtt-publisher/data-file/house-0.csv \
+    --output data-file/house-0-full-day.csv
+```
+
+### Tham số
+
+| Tham số | Mô tả |
+|---------|------|
+| `-i`, `--input` | Đường dẫn file CSV đầu vào (bắt buộc) |
+| `-o`, `--output` | Đường dẫn file đầu ra (mặc định: `data-file/{basename}_full.csv`) |

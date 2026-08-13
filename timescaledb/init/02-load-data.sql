@@ -7,7 +7,7 @@ COPY measurements_raw (
     household_id,
     house_id
 )
-FROM '/import/house-0-9_day-4.csv'
+FROM '/import/house-0-9_full_day-4.csv'
 WITH (
     FORMAT csv,
     HEADER false
@@ -22,7 +22,7 @@ COPY measurements_raw (
     household_id,
     house_id
 )
-FROM '/import/historical_house-0-9_day-1-3.csv'
+FROM '/import/historical_house-0-9_full_day-1-3.csv'
 WITH (
     FORMAT csv,
     HEADER false
