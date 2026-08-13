@@ -31,10 +31,11 @@ timescaledb/
 ┌─────────────────────────────────────────────────────────┐
 │  Data Preprocess (data-preprocess/)                     │
 │                                                         │
-│  merge.py  →  house-0-9.csv                             │
+│  merge.py  →  house-0-9.csv                             |
+|  generate_full_day.py  →  house-0-9_full.csv            |
 │  generate_historical_data.py  →                         │
-│      house-0-9_day-4.csv                                │
-│      historical_house-0-9_day-1-3.csv                   │
+│      house-0-9_full_day-4.csv                           │
+│      historical_house-0-9_full_day-1-3.csv              │
 └──────────────────────┬──────────────────────────────────┘
                        │  (mounted vào /import)
                        ▼
