@@ -10,14 +10,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
 /**
  * Bolt that detects house anomalies from current house averages while maintaining rolling statistics in memory.
  */
-public class Bolt_houseAnomalyDetetion extends BaseRichBolt {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Bolt_houseAnomalyDetetion.class);
+public class Bolt_houseAnomalyDetection extends BaseRichBolt {
+    private static final Logger LOGGER = LoggerFactory.getLogger(Bolt_houseAnomalyDetection.class);
 
 	private final String inputStreamId;
 	private final String inputFieldWindowSize;
@@ -29,12 +30,13 @@ public class Bolt_houseAnomalyDetetion extends BaseRichBolt {
 	private final boolean houseCheckAvg;
 	private final boolean houseCheckMin;
 	private final Map<HouseKey, RollingStatistic> rollingStatistics;
+	private transient RedisAnomalyPublisher redisPublisher;
 	private transient OutputCollector collector;
 
 	/**
 	 * Creates the bolt for house anomaly detection.
 	 */
-	public Bolt_houseAnomalyDetetion() {
+	public Bolt_houseAnomalyDetection() {
 		this.inputStreamId = "current-house-average";
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
@@ -50,7 +52,9 @@ public class Bolt_houseAnomalyDetetion extends BaseRichBolt {
     @Override
 	public void prepare(Map<String, Object> stormConf, TopologyContext context, OutputCollector collector) {
 		this.collector = collector;
-		LOGGER.info("Bolt_HouseAnomalyDetetion initialized with threshold {}%", anomalyThresholdPercent);
+		this.redisPublisher = new RedisAnomalyPublisher();
+		redisPublisher.initialize();
+		LOGGER.info("Bolt_HouseAnomalyDetection initialized with threshold {}%", anomalyThresholdPercent);
 	}
 
     @Override
@@ -74,6 +78,7 @@ public class Bolt_houseAnomalyDetetion extends BaseRichBolt {
 	@Override
 	public void cleanup() {
 		rollingStatistics.clear();
+		redisPublisher.close();
 	}
 
     private void processAverage(Tuple input) {
@@ -119,7 +124,8 @@ public class Bolt_houseAnomalyDetetion extends BaseRichBolt {
     }
 
     private void logAnomaly(String anomalyType, int windowSize, long timestamp, int houseId, double currentAverage, RollingStatistic statistic) {
-        LOGGER.info(
+        publishAnomalyEvent(anomalyType, windowSize, timestamp, houseId, currentAverage, statistic);
+		LOGGER.info(
 			"TODO anomaly handling: type={} windowSize={} timestamp={} houseId={} value={} avg={} min={} max={} anomalyThresholdPercent={}",
 			anomalyType,
 			windowSize,
@@ -132,6 +138,24 @@ public class Bolt_houseAnomalyDetetion extends BaseRichBolt {
 			anomalyThresholdPercent
 		);
     }
+
+	private void publishAnomalyEvent(String anomalyType, int windowSize, long timestamp, int houseId, double currentAverage, RollingStatistic statistic) {
+		Map<String, Object> event = new LinkedHashMap<>();
+		event.put("type", "HOUSE_ANOMALY");
+		event.put("anomalyType", anomalyType);
+		event.put("windowSize", windowSize);
+		event.put("timestamp", timestamp);
+		event.put("houseId", houseId);
+		event.put("householdId", null);
+		event.put("plugId", null);
+		event.put("value", currentAverage);
+		event.put("avg", statistic.avg);
+		event.put("min", statistic.min);
+		event.put("max", statistic.max);
+		event.put("anomalyThresholdPercent", anomalyThresholdPercent);
+
+		redisPublisher.publish(StormConfig.getHouseAnomalyChannel(), event);
+	}
 
     private static final class HouseKey {
 

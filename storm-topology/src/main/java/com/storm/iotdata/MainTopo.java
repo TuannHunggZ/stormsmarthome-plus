@@ -62,8 +62,8 @@ public class MainTopo {
         }
 
         BoltDeclarer houseAnomalyDetectionBolt = builder.setBolt(
-            "bolt-house-anomaly-detetion",
-            new Bolt_houseAnomalyDetetion(),
+            "bolt-house-anomaly-detection",
+            new Bolt_houseAnomalyDetection(),
             1
         );
 

@@ -1,6 +1,6 @@
 # Storm Smart Home Plus
 
-Hệ thống này mô phỏng và xử lý dữ liệu tiêu thụ điện theo bài toán DEBS 2014, dùng Apache Storm để tính trung bình theo cửa sổ thời gian, lưu dữ liệu lịch sử vào PostgreSQL và tính các bước dự đoán tiếp theo từ dữ liệu đã tổng hợp.
+Hệ thống này mô phỏng và xử lý dữ liệu tiêu thụ điện theo bài toán DEBS 2014, dùng Apache Storm để tính trung bình theo cửa sổ thời gian, lưu dữ liệu lịch sử vào PostgreSQL, phát hiện anomaly realtime qua Redis Pub/Sub và hiển thị alert qua WebApp WebSocket.
 
 ## Topology
 

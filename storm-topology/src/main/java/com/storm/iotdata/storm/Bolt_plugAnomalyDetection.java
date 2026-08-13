@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -32,6 +33,7 @@ public class Bolt_plugAnomalyDetection extends BaseRichBolt {
 	private final boolean plugCheckAvg;
 	private final boolean plugCheckMin;
 	private final Map<PlugKey, RollingStatistic> rollingStatistics;
+	private transient RedisAnomalyPublisher redisPublisher;
 	private transient OutputCollector collector;
 
     /**
@@ -55,6 +57,8 @@ public class Bolt_plugAnomalyDetection extends BaseRichBolt {
     @Override
 	public void prepare(Map<String, Object> stormConf, TopologyContext context, OutputCollector collector) {
 		this.collector = collector;
+		this.redisPublisher = new RedisAnomalyPublisher();
+		redisPublisher.initialize();
 		LOGGER.info("Bolt_PlugAnomalyDetection initialized with threshold {}%", anomalyThresholdPercent);
 	}
 
@@ -79,6 +83,7 @@ public class Bolt_plugAnomalyDetection extends BaseRichBolt {
 	@Override
 	public void cleanup() {
 		rollingStatistics.clear();
+		redisPublisher.close();
 	}
 
     private void processAverage(Tuple input) {
@@ -128,6 +133,7 @@ public class Bolt_plugAnomalyDetection extends BaseRichBolt {
     }
 
     private void logAnomaly(String anomalyType, int windowSize, long timestamp, int houseId, int householdId, int plugId, double currentAverage, RollingStatistic statistic) {
+		publishAnomalyEvent(anomalyType, windowSize, timestamp, houseId, householdId, plugId, currentAverage, statistic);
         LOGGER.info(
 			"TODO anomaly handling: type={} windowSize={} timestamp={} houseId={} householdId={} plugId={} value={} avg={} min={} max={} anomalyThresholdPercent={}",
 			anomalyType,
@@ -143,6 +149,24 @@ public class Bolt_plugAnomalyDetection extends BaseRichBolt {
 			anomalyThresholdPercent
 		);
     }
+
+	private void publishAnomalyEvent(String anomalyType, int windowSize, long timestamp, int houseId, int householdId, int plugId, double currentAverage, RollingStatistic statistic) {
+		Map<String, Object> event = new LinkedHashMap<>();
+		event.put("type", "PLUG_ANOMALY");
+		event.put("anomalyType", anomalyType);
+		event.put("windowSize", windowSize);
+		event.put("timestamp", timestamp);
+		event.put("houseId", houseId);
+		event.put("householdId", householdId);
+		event.put("plugId", plugId);
+		event.put("value", currentAverage);
+		event.put("avg", statistic.avg);
+		event.put("min", statistic.min);
+		event.put("max", statistic.max);
+		event.put("anomalyThresholdPercent", anomalyThresholdPercent);
+
+		redisPublisher.publish(StormConfig.getPlugAnomalyChannel(), event);
+	}
 
     private static final class PlugKey {
 

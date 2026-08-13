@@ -32,6 +32,17 @@ services:
       timeout: 5s
       retries: 20
 
+  redis:
+    image: redis:7.4-alpine
+    container_name: redis
+    hostname: redis
+    command: redis-server --save "" --appendonly no
+    ports:
+      - 6379:6379
+    networks:
+      storm_network:
+    restart: always
+
   zookeeper:
     image: zookeeper:3.8.5
     container_name: zookeeper
@@ -130,6 +141,25 @@ services:
     depends_on:
       timescaledb:
         condition: service_healthy
+
+  webapp:
+    build:
+      context: ./webapp
+    container_name: webapp
+    hostname: webapp
+    environment:
+      - PORT=3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PLUG_CHANNEL=anomaly:plug
+      - REDIS_HOUSE_CHANNEL=anomaly:house
+    ports:
+      - 3001:3000
+    networks:
+      storm_network:
+    depends_on:
+      - redis
+    restart: always
 
 networks:
   storm_network:

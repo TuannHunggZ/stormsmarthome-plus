@@ -76,6 +76,37 @@ public class StormConfig {
     }
 
     // =====================================================================
+    // REDIS CONFIGURATION
+    // =====================================================================
+    // Redis host used by the anomaly publisher.
+    private static final String redisHost = "redis";
+
+    // Redis port used by the anomaly publisher.
+    private static final int redisPort = 6379;
+
+    // Redis Pub/Sub channel for plug anomaly events.
+    private static final String plugAnomalyChannel = "anomaly:plug";
+
+    // Redis Pub/Sub channel for house anomaly events.
+    private static final String houseAnomalyChannel = "anomaly:house";
+
+    public static String getRedisHost() {
+        return redisHost;
+    }
+
+    public static int getRedisPort() {
+        return redisPort;
+    }
+
+    public static String getPlugAnomalyChannel() {
+        return plugAnomalyChannel;
+    }
+
+    public static String getHouseAnomalyChannel() {
+        return houseAnomalyChannel;
+    }
+
+    // =====================================================================
     // ANOMALY DETECTION CONFIGURATION
     // =====================================================================
     // Threshold, in percent, used by anomaly detection bolts.
