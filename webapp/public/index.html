@@ -9,20 +9,21 @@
   <body>
     <main class="shell">
       <section class="hero">
-        <div>
-          <p class="eyebrow">Realtime anomaly feed</p>
-          <h1>Storm Smart Home Alerts</h1>
-          <p class="lede">Redis Pub/Sub to WebSocket to browser, without polling.</p>
+        <div class="hero-copy">
+          <p class="eyebrow">Smart Home Monitoring</p>
+          <h1>Anomaly Detection</h1>
+          <p class="lede">Real-time anomaly detection and device activity monitoring.</p>
         </div>
         <div class="status-card">
+          <p class="status-label">Live connection</p>
           <span id="connectionStatus" class="status disconnected">Disconnected</span>
-          <p>WebSocket connection</p>
+          <p id="connectionHint" class="status-hint">Attempting to reconnect...</p>
         </div>
       </section>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Latest alerts</h2>
+          <h2>Active Alerts</h2>
           <p id="alertCount">0 alerts</p>
         </div>
         <div id="alertList" class="alert-list"></div>
