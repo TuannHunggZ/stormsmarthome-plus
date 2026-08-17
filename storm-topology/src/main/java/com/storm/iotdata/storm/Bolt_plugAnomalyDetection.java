@@ -1,5 +1,6 @@
 package com.storm.iotdata.storm;
 
+import com.storm.iotdata.models.RedisAnomalyPublisher;
 import com.storm.iotdata.models.StormConfig;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;

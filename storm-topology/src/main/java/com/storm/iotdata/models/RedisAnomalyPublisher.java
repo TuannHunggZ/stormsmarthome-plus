@@ -1,8 +1,8 @@
-package com.storm.iotdata.storm;
+package com.storm.iotdata.models;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.storm.iotdata.models.StormConfig;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
