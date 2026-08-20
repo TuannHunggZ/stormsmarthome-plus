@@ -81,10 +81,22 @@ public class MainTopo {
             1
         );
 
+        BoltDeclarer medianTriggerBolt = builder.setBolt(
+            "bolt-median-trigger",
+            new Bolt_medianTrigger(),
+            1
+        );
+
         String punctuationStreamPrefix = "punctuation-";
         for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
-            medianBolt.allGrouping("spout-data", punctuationStreamPrefix + windowSize + "m");
+            medianTriggerBolt.shuffleGrouping("spout-data", punctuationStreamPrefix + windowSize + "m");
         }
+
+        medianBolt.fieldsGrouping(
+            "bolt-median-trigger",
+            "median-trigger",
+            new Fields("houseId")
+        );
 
         BoltDeclarer houseMedianBolt = builder.setBolt(
             "bolt-house-median",
@@ -92,10 +104,11 @@ public class MainTopo {
             1
         );
 
-        String housePunctuationStreamPrefix = "punctuation-";
-        for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
-            houseMedianBolt.allGrouping("spout-data", housePunctuationStreamPrefix + windowSize + "m");
-        }
+        houseMedianBolt.fieldsGrouping(
+            "bolt-median-trigger",
+            "median-trigger",
+            new Fields("houseId")
+        );
 
         BoltDeclarer houseForecastBolt = builder.setBolt(
             "bolt-house-forecast",

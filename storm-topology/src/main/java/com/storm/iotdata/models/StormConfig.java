@@ -34,6 +34,9 @@ public class StormConfig {
     // Target table for house averages.
     private static final String houseAverageTableName = "house_average";
 
+    // Metadata table containing expected house averages.
+    private static final String houseAverageExpectedTableName = "house_average_expected";
+
     // Target table for plug forecasts.
     private static final String plugForecastTableName = "plug_forecast";
 
@@ -61,6 +64,10 @@ public class StormConfig {
 
     public static String getHouseAverageTableName() {
         return houseAverageTableName;
+    }
+
+    public static String getHouseAverageExpectedTableName() {
+        return houseAverageExpectedTableName;
     }
 
     public static String getPlugForecastTableName() {
@@ -234,13 +241,30 @@ public class StormConfig {
     }
 
     // =====================================================================
+    // BOLT-MEDIAN-TRIGGER
+    // =====================================================================
+    // SQL template used to fetch all distinct house ids from metadata.
+    private static final String medianTriggerHouseIdsSelectSqlTemplate = "SELECT DISTINCT house_id FROM %s ORDER BY house_id";
+
+    public static String getMedianTriggerHouseIdsSelectSqlTemplate() {
+        return medianTriggerHouseIdsSelectSqlTemplate;
+    }
+
+    // =====================================================================
     // BOLT-PLUG-MEDIAN
     // =====================================================================
     // SQL template used to query historical plug averages.
     private static final String plugMedianSelectSqlTemplate = "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND timestamp = ?";
 
+    // SQL template used to query historical plug averages by house id.
+    private static final String plugMedianSelectByHouseSqlTemplate = "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND timestamp = ? AND house_id = ?";
+
     public static String getPlugMedianSelectSqlTemplate() {
         return plugMedianSelectSqlTemplate;
+    }
+
+    public static String getPlugMedianSelectByHouseSqlTemplate() {
+        return plugMedianSelectByHouseSqlTemplate;
     }
 
     // =====================================================================
@@ -249,8 +273,15 @@ public class StormConfig {
     // SQL template used to query historical house averages.
     private static final String houseMedianSelectSqlTemplate = "SELECT house_id, average_load FROM %s WHERE window_size = ? AND timestamp = ?";
 
+    // SQL template used to query historical house averages by house id.
+    private static final String houseMedianSelectByHouseSqlTemplate = "SELECT house_id, average_load FROM %s WHERE window_size = ? AND timestamp = ? AND house_id = ?";
+
     public static String getHouseMedianSelectSqlTemplate() {
         return houseMedianSelectSqlTemplate;
+    }
+
+    public static String getHouseMedianSelectByHouseSqlTemplate() {
+        return houseMedianSelectByHouseSqlTemplate;
     }
 
     // =====================================================================

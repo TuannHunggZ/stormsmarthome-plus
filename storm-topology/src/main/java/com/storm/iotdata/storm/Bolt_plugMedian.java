@@ -40,10 +40,11 @@ public class Bolt_plugMedian extends BaseRichBolt {
 	private final String jdbcUser;
 	private final String jdbcPassword;
 	private final String selectSqlTemplate;
-	private final String inputStreamIdPrefix;
+	private final String inputStreamId;
 	private final String outputStreamId;
 	private final String outputFieldWindowSize;
 	private final String outputFieldTimestamp;
+	private final String inputFieldHouseId;
 	private final String outputFieldHouseId;
 	private final String outputFieldHouseholdId;
 	private final String outputFieldPlugId;
@@ -60,11 +61,12 @@ public class Bolt_plugMedian extends BaseRichBolt {
 	public Bolt_plugMedian() {
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
+		this.inputFieldHouseId = "houseId";
 		this.jdbcUrl = StormConfig.getJdbcUrl();
 		this.jdbcUser = StormConfig.getJdbcUser();
 		this.jdbcPassword = StormConfig.getJdbcPassword();
-		this.selectSqlTemplate = StormConfig.getPlugMedianSelectSqlTemplate();
-		this.inputStreamIdPrefix = "punctuation-";
+		this.selectSqlTemplate = StormConfig.getPlugMedianSelectByHouseSqlTemplate();
+		this.inputStreamId = "median-trigger";
 		this.outputStreamId = "archive-plug-median";
 		this.outputFieldWindowSize = "windowSize";
 		this.outputFieldTimestamp = "timestamp";
@@ -84,8 +86,10 @@ public class Bolt_plugMedian extends BaseRichBolt {
 	@Override
 	public void execute(Tuple input) {
 		try {
-			if (input.getSourceStreamId() != null && input.getSourceStreamId().startsWith(inputStreamIdPrefix)) {
+			if (inputStreamId.equals(input.getSourceStreamId())) {
 				processPunctuation(input);
+			} else {
+				LOGGER.debug("Ignoring tuple from unexpected stream {}", input.getSourceStreamId());
 			}
 			collector.ack(input);
 		} catch (SQLException exception) {
@@ -128,13 +132,14 @@ public class Bolt_plugMedian extends BaseRichBolt {
 	private void processPunctuation(Tuple input) throws SQLException {
 		int windowSize = input.getIntegerByField(inputFieldWindowSize);
 		long timestamp = input.getLongByField(inputFieldTimestamp);
+		int houseId = input.getIntegerByField(inputFieldHouseId);
 		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
 		long forecastTimestamp = timestamp + (2L * windowSizeSeconds);
 		long dayStrideSeconds = calculateSlicesPerDay(windowSize) * windowSizeSeconds;
 
-		LOGGER.info("Forecast timestamp {} for window {}m", forecastTimestamp, windowSize);
+		LOGGER.info("Forecast timestamp {} for window {}m house {}", forecastTimestamp, windowSize, houseId);
 
-		Map<PlugKey, List<Double>> historicalValues = loadHistoricalValues(windowSize, forecastTimestamp, dayStrideSeconds);
+		Map<PlugKey, List<Double>> historicalValues = loadHistoricalValues(windowSize, forecastTimestamp, dayStrideSeconds, houseId);
 		int processedPlugCount = emitMedian(windowSize, timestamp, historicalValues);
 
 		LOGGER.info("Number of plugs processed: {}", processedPlugCount);
@@ -148,12 +153,12 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		return MINUTES_PER_DAY / windowSize;
 	}
 
-	private Map<PlugKey, List<Double>> loadHistoricalValues(int windowSize, long forecastTimestamp, long dayStrideSeconds) throws SQLException {
+	private Map<PlugKey, List<Double>> loadHistoricalValues(int windowSize, long forecastTimestamp, long dayStrideSeconds, int houseId) throws SQLException {
 		Map<PlugKey, List<Double>> historicalValues = new HashMap<>();
 		int queriedSlices = 0;
 
 		for (long historyTimestamp = forecastTimestamp - dayStrideSeconds; historyTimestamp >= minimumDatasetTimestampSeconds; historyTimestamp -= dayStrideSeconds) {
-			loadHistoricalValues(windowSize, historyTimestamp, historicalValues);
+			loadHistoricalValues(windowSize, historyTimestamp, houseId, historicalValues);
 			queriedSlices += 1;
 		}
 
@@ -161,10 +166,11 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		return historicalValues;
 	}
 
-	private void loadHistoricalValues(int windowSize, long historyTimestamp, Map<PlugKey, List<Double>> historicalValues) throws SQLException {
+	private void loadHistoricalValues(int windowSize, long historyTimestamp, int houseId, Map<PlugKey, List<Double>> historicalValues) throws SQLException {
 		selectStatement.clearParameters();
 		selectStatement.setInt(1, windowSize);
 		selectStatement.setTimestamp(2, toSqlTimestamp(historyTimestamp));
+		selectStatement.setInt(3, houseId);
 
 		try (ResultSet resultSet = selectStatement.executeQuery()) {
 			while (resultSet.next()) {
