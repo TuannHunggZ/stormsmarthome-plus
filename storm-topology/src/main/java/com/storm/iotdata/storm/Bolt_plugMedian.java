@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.Array;
 import java.sql.Timestamp;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -150,21 +151,30 @@ public class Bolt_plugMedian extends BaseRichBolt {
 
 	private Map<PlugKey, List<Double>> loadHistoricalValues(int windowSize, long forecastTimestamp, long dayStrideSeconds) throws SQLException {
 		Map<PlugKey, List<Double>> historicalValues = new HashMap<>();
+		List<Timestamp> historyTimestamps = new ArrayList<>();
 		int queriedSlices = 0;
 
 		for (long historyTimestamp = forecastTimestamp - dayStrideSeconds; historyTimestamp >= minimumDatasetTimestampSeconds; historyTimestamp -= dayStrideSeconds) {
-			loadHistoricalValues(windowSize, historyTimestamp, historicalValues);
+			historyTimestamps.add(toSqlTimestamp(historyTimestamp));
 			queriedSlices += 1;
 		}
+
+		loadHistoricalValues(windowSize, historyTimestamps, historicalValues);
 
 		LOGGER.info("History slices queried: {}", queriedSlices);
 		return historicalValues;
 	}
 
-	private void loadHistoricalValues(int windowSize, long historyTimestamp, Map<PlugKey, List<Double>> historicalValues) throws SQLException {
+	private void loadHistoricalValues(int windowSize, List<Timestamp> historyTimestamps, Map<PlugKey, List<Double>> historicalValues) throws SQLException {
+		if (historyTimestamps.isEmpty()) {
+			return;
+		}
+
+		Array timestampArray = null;
 		selectStatement.clearParameters();
 		selectStatement.setInt(1, windowSize);
-		selectStatement.setTimestamp(2, toSqlTimestamp(historyTimestamp));
+		timestampArray = connection.createArrayOf("timestamptz", historyTimestamps.toArray());
+		selectStatement.setArray(2, timestampArray);
 
 		try (ResultSet resultSet = selectStatement.executeQuery()) {
 			while (resultSet.next()) {
@@ -176,6 +186,10 @@ public class Bolt_plugMedian extends BaseRichBolt {
 
 				List<Double> values = historicalValues.computeIfAbsent(key, ignored -> new ArrayList<Double>());
 				values.add(resultSet.getDouble(4));
+			}
+		} finally {
+			if (timestampArray != null) {
+				timestampArray.free();
 			}
 		}
 	}
