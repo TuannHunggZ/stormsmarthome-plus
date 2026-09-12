@@ -47,9 +47,23 @@ BEGIN
         household_id,
         plug_id;
 
-    INSERT INTO plug_average
+    INSERT INTO plug_average (
+        window_size,
+        slice_index_in_day,
+        timestamp,
+        house_id,
+        household_id,
+        plug_id,
+        average_load
+    )
     SELECT
         p_window_size,
+        FLOOR(
+            MOD(
+                FLOOR(EXTRACT(EPOCH FROM time_bucket(p_interval, timestamp))),
+                86400
+            ) / (p_window_size * 60)
+        )::INTEGER,
         time_bucket(p_interval, timestamp),
         house_id,
         household_id,
@@ -68,10 +82,7 @@ $$;
 
 CALL generate_plug_average(1,   INTERVAL '1 minute');
 CALL generate_plug_average(5,   INTERVAL '5 minutes');
-CALL generate_plug_average(10,  INTERVAL '10 minutes');
 CALL generate_plug_average(15,  INTERVAL '15 minutes');
-CALL generate_plug_average(20,  INTERVAL '20 minutes');
-CALL generate_plug_average(30,  INTERVAL '30 minutes');
 CALL generate_plug_average(60,  INTERVAL '60 minutes');
 CALL generate_plug_average(120, INTERVAL '120 minutes');
 
@@ -102,9 +113,21 @@ BEGIN
         timestamp,
         house_id;
 
-    INSERT INTO house_average
+    INSERT INTO house_average (
+        window_size,
+        slice_index_in_day,
+        timestamp,
+        house_id,
+        average_load
+    )
     SELECT
         window_size,
+        FLOOR(
+            MOD(
+                FLOOR(EXTRACT(EPOCH FROM timestamp)),
+                86400
+            ) / (window_size * 60)
+        )::INTEGER,
         timestamp,
         house_id,
         SUM(average_load)
@@ -120,10 +143,7 @@ $$;
 
 CALL generate_house_average(1);
 CALL generate_house_average(5);
-CALL generate_house_average(10);
 CALL generate_house_average(15);
-CALL generate_house_average(20);
-CALL generate_house_average(30);
 CALL generate_house_average(60);
 CALL generate_house_average(120);
 

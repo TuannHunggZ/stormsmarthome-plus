@@ -2,6 +2,7 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 CREATE TABLE plug_average (
     window_size    INTEGER NOT NULL,
+    slice_index_in_day INTEGER NOT NULL,
     timestamp      TIMESTAMPTZ NOT NULL,
 
     house_id       INTEGER NOT NULL,
@@ -12,6 +13,7 @@ CREATE TABLE plug_average (
 
     PRIMARY KEY (
         window_size,
+        slice_index_in_day,
         timestamp,
         house_id,
         household_id,
@@ -23,6 +25,7 @@ SELECT create_hypertable('plug_average', by_range('timestamp', INTERVAL '1 day')
 
 CREATE TABLE house_average (
     window_size    INTEGER NOT NULL,
+    slice_index_in_day INTEGER NOT NULL,
     timestamp      TIMESTAMPTZ NOT NULL,
 
     house_id       INTEGER NOT NULL,
@@ -31,6 +34,7 @@ CREATE TABLE house_average (
 
     PRIMARY KEY (
         window_size,
+        slice_index_in_day,
         timestamp,
         house_id
     )

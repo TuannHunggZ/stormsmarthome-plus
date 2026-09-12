@@ -115,9 +115,6 @@ $$;
 
 CALL generate_forecast(1,   INTERVAL '1 minute');
 CALL generate_forecast(5,   INTERVAL '5 minutes');
-CALL generate_forecast(10,  INTERVAL '10 minutes');
 CALL generate_forecast(15,  INTERVAL '15 minutes');
-CALL generate_forecast(20,  INTERVAL '20 minutes');
-CALL generate_forecast(30,  INTERVAL '30 minutes');
 CALL generate_forecast(60,  INTERVAL '60 minutes');
 CALL generate_forecast(120, INTERVAL '120 minutes');
