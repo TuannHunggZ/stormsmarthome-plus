@@ -13,12 +13,9 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.Array;
-import java.sql.Timestamp;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -132,10 +129,15 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
 		long forecastTimestamp = timestamp + (2L * windowSizeSeconds);
 		long dayStrideSeconds = calculateSlicesPerDay(windowSize) * windowSizeSeconds;
+		int sliceIndexInDay = calculateSliceIndexInDay(forecastTimestamp, windowSizeSeconds);
 
-		LOGGER.info("Forecast timestamp {} for window {}m", forecastTimestamp, windowSize);
+		LOGGER.info("Forecast slice {} for window {}m", sliceIndexInDay, windowSize);
 
-		Map<PlugKey, List<Double>> historicalValues = loadHistoricalValues(windowSize, forecastTimestamp, dayStrideSeconds);
+		Map<PlugKey, List<Double>> historicalValues = loadHistoricalValues(
+			windowSize,
+			sliceIndexInDay,
+			forecastTimestamp - dayStrideSeconds
+		);
 		int processedPlugCount = emitMedian(windowSize, timestamp, historicalValues);
 
 		LOGGER.info("Number of plugs processed: {}", processedPlugCount);
@@ -149,32 +151,22 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		return MINUTES_PER_DAY / windowSize;
 	}
 
-	private Map<PlugKey, List<Double>> loadHistoricalValues(int windowSize, long forecastTimestamp, long dayStrideSeconds) throws SQLException {
+	private int calculateSliceIndexInDay(long timestamp, long windowSizeSeconds) {
+		return (int) Math.floorDiv(timestamp % (86400L), windowSizeSeconds);
+	}
+
+	private Map<PlugKey, List<Double>> loadHistoricalValues(int windowSize, int sliceIndexInDay, long latestHistoricalTimestamp) throws SQLException {
 		Map<PlugKey, List<Double>> historicalValues = new HashMap<>();
-		List<Timestamp> historyTimestamps = new ArrayList<>();
-		int queriedSlices = 0;
-
-		for (long historyTimestamp = forecastTimestamp - dayStrideSeconds; historyTimestamp >= minimumDatasetTimestampSeconds; historyTimestamp -= dayStrideSeconds) {
-			historyTimestamps.add(toSqlTimestamp(historyTimestamp));
-			queriedSlices += 1;
-		}
-
-		loadHistoricalValues(windowSize, historyTimestamps, historicalValues);
-
-		LOGGER.info("History slices queried: {}", queriedSlices);
+		loadHistoricalValues(windowSize, sliceIndexInDay, latestHistoricalTimestamp, historicalValues);
 		return historicalValues;
 	}
 
-	private void loadHistoricalValues(int windowSize, List<Timestamp> historyTimestamps, Map<PlugKey, List<Double>> historicalValues) throws SQLException {
-		if (historyTimestamps.isEmpty()) {
-			return;
-		}
-
-		Array timestampArray = null;
+	private void loadHistoricalValues(int windowSize, int sliceIndexInDay, long latestHistoricalTimestamp, Map<PlugKey, List<Double>> historicalValues) throws SQLException {
 		selectStatement.clearParameters();
 		selectStatement.setInt(1, windowSize);
-		timestampArray = connection.createArrayOf("timestamptz", historyTimestamps.toArray());
-		selectStatement.setArray(2, timestampArray);
+		selectStatement.setInt(2, sliceIndexInDay);
+		selectStatement.setLong(3, minimumDatasetTimestampSeconds);
+		selectStatement.setLong(4, latestHistoricalTimestamp);
 
 		try (ResultSet resultSet = selectStatement.executeQuery()) {
 			while (resultSet.next()) {
@@ -186,10 +178,6 @@ public class Bolt_plugMedian extends BaseRichBolt {
 
 				List<Double> values = historicalValues.computeIfAbsent(key, ignored -> new ArrayList<Double>());
 				values.add(resultSet.getDouble(4));
-			}
-		} finally {
-			if (timestampArray != null) {
-				timestampArray.free();
 			}
 		}
 	}
@@ -252,10 +240,6 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		} catch (SQLException exception) {
 			LOGGER.warn("Failed to close PostgreSQL resources cleanly", exception);
 		}
-	}
-
-	private Timestamp toSqlTimestamp(long epochSeconds) {
-		return Timestamp.from(Instant.ofEpochSecond(epochSeconds));
 	}
 
 	private static final class PlugKey {

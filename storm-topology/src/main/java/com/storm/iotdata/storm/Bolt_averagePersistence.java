@@ -116,13 +116,15 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 
 	private void processPlugAverage(Tuple input) throws SQLException {
 		int windowSize = input.getIntegerByField("windowSize");
+		int sliceIndexInDay = input.getIntegerByField("sliceIndexInDay");
 		long timestamp = input.getLongByField("timestamp");
 		plugStatement.setInt(1, windowSize);
-		plugStatement.setTimestamp(2, toSqlTimestamp(timestamp));
-		plugStatement.setInt(3, input.getIntegerByField("houseId"));
-		plugStatement.setInt(4, input.getIntegerByField("householdId"));
-		plugStatement.setInt(5, input.getIntegerByField("plugId"));
-		plugStatement.setDouble(6, input.getDoubleByField("currentAverage"));
+		plugStatement.setInt(2, sliceIndexInDay);
+		plugStatement.setTimestamp(3, toSqlTimestamp(timestamp));
+		plugStatement.setInt(4, input.getIntegerByField("houseId"));
+		plugStatement.setInt(5, input.getIntegerByField("householdId"));
+		plugStatement.setInt(6, input.getIntegerByField("plugId"));
+		plugStatement.setDouble(7, input.getDoubleByField("currentAverage"));
 		plugStatement.addBatch();
 		plugBatchCount += 1;
 
@@ -133,11 +135,13 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 
 	private void processHouseAverage(Tuple input) throws SQLException {
 		int windowSize = input.getIntegerByField("windowSize");
+		int sliceIndexInDay = input.getIntegerByField("sliceIndexInDay");
 		long timestamp = input.getLongByField("timestamp");
 		houseStatement.setInt(1, windowSize);
-		houseStatement.setTimestamp(2, toSqlTimestamp(timestamp));
-		houseStatement.setInt(3, input.getIntegerByField("houseId"));
-		houseStatement.setDouble(4, input.getDoubleByField("currentAverage"));
+		houseStatement.setInt(2, sliceIndexInDay);
+		houseStatement.setTimestamp(3, toSqlTimestamp(timestamp));
+		houseStatement.setInt(4, input.getIntegerByField("houseId"));
+		houseStatement.setDouble(5, input.getDoubleByField("currentAverage"));
 		houseStatement.addBatch();
 		houseBatchCount += 1;
 

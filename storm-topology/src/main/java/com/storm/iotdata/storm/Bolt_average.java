@@ -35,6 +35,7 @@ public class Bolt_average extends BaseRichBolt {
 	private final String outputHouseStreamId;
 	private final String outputFieldWindowSize;
 	private final String outputFieldTimestamp;
+	private final String outputFieldSliceIndexInDay;
 	private final String outputFieldHouseId;
 	private final String outputFieldHouseholdId;
 	private final String outputFieldPlugId;
@@ -62,6 +63,7 @@ public class Bolt_average extends BaseRichBolt {
 		this.outputHouseStreamId = "current-house-average";
 		this.outputFieldWindowSize = "windowSize";
 		this.outputFieldTimestamp = "timestamp";
+		this.outputFieldSliceIndexInDay = "sliceIndexInDay";
 		this.outputFieldHouseId = "houseId";
 		this.outputFieldHouseholdId = "householdId";
 		this.outputFieldPlugId = "plugId";
@@ -110,6 +112,7 @@ public class Bolt_average extends BaseRichBolt {
 			new Fields(
 				outputFieldWindowSize,
 				outputFieldTimestamp,
+				outputFieldSliceIndexInDay,
 				outputFieldHouseId,
 				outputFieldHouseholdId,
 				outputFieldPlugId,
@@ -122,6 +125,7 @@ public class Bolt_average extends BaseRichBolt {
 			new Fields(
 				outputFieldWindowSize,
 				outputFieldTimestamp,
+				outputFieldSliceIndexInDay,
 				outputFieldHouseId,
 				outputFieldCurrentAverage
 			)
@@ -177,6 +181,7 @@ public class Bolt_average extends BaseRichBolt {
 	private int emitAverages(int windowSize, long timestamp, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
 		double houseAverage = 0.0d;
     	int emittedPlugCount = 0;
+		int sliceIndexInDay = (int) Math.floorDiv(timestamp % 86400L, windowSize * 60L);
 
 		for (Map.Entry<PlugKey, AverageAccumulator> entry : houseAccumulators.entrySet()) {
 			PlugKey plugKey = entry.getKey();
@@ -188,6 +193,7 @@ public class Bolt_average extends BaseRichBolt {
 				new Values(
 					windowSize,
 					timestamp,
+					sliceIndexInDay,
 					houseId,
 					plugKey.householdId,
 					plugKey.plugId,
@@ -207,6 +213,7 @@ public class Bolt_average extends BaseRichBolt {
 			new Values(
 				windowSize,
 				timestamp,
+				sliceIndexInDay,
 				houseId,
 				houseAverage
 			)

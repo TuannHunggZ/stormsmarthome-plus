@@ -10,7 +10,7 @@ public class StormConfig {
     // =====================================================================
     // Window sizes, in minutes, used to generate punctuation events
     // across the topology. Each value defines a separate punctuation stream.
-    private static final List<Integer> timeSliceMinutes = Arrays.asList(1, 5, 10, 15, 20, 30, 60, 120);
+    private static final List<Integer> timeSliceMinutes = Arrays.asList(1, 5, 15, 60, 120);
 
     public static List<Integer> getTimeSliceMinutes() {
         return timeSliceMinutes;
@@ -216,10 +216,10 @@ public class StormConfig {
     private static final int batchSize = 1000;
 
     // SQL template for plug inserts.
-    private static final String plugAverageInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
+    private static final String plugAverageInsertSql = "INSERT INTO %s (window_size, slice_index_in_day, timestamp, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
     // SQL template for house inserts.
-    private static final String houseAverageInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, average_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING";
+    private static final String houseAverageInsertSql = "INSERT INTO %s (window_size, slice_index_in_day, timestamp, house_id, average_load) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
     public static int getBatchSize() {
         return batchSize;
@@ -237,7 +237,7 @@ public class StormConfig {
     // BOLT-PLUG-MEDIAN
     // =====================================================================
     // SQL template used to query historical plug averages.
-    private static final String plugMedianSelectSqlTemplate = "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND timestamp = ANY(?)";
+    private static final String plugMedianSelectSqlTemplate = "SELECT house_id, household_id, plug_id, average_load FROM %s WHERE window_size = ? AND slice_index_in_day = ? AND timestamp >= to_timestamp(?) AND timestamp <= to_timestamp(?)";
 
     public static String getPlugMedianSelectSqlTemplate() {
         return plugMedianSelectSqlTemplate;
@@ -247,7 +247,7 @@ public class StormConfig {
     // BOLT-HOUSE-MEDIAN
     // =====================================================================
     // SQL template used to query historical house averages.
-    private static final String houseMedianSelectSqlTemplate = "SELECT house_id, average_load FROM %s WHERE window_size = ? AND timestamp = ANY(?)";
+    private static final String houseMedianSelectSqlTemplate = "SELECT house_id, average_load FROM %s WHERE window_size = ? AND slice_index_in_day = ? AND timestamp >= to_timestamp(?) AND timestamp <= to_timestamp(?)";
 
     public static String getHouseMedianSelectSqlTemplate() {
         return houseMedianSelectSqlTemplate;
