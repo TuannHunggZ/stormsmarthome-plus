@@ -51,6 +51,7 @@ CREATE TABLE plug_forecast (
     plug_id        INTEGER NOT NULL,
 
     forecast_load   DOUBLE PRECISION NOT NULL,
+    prediction_latency DOUBLE PRECISION NOT NULL,
 
     PRIMARY KEY (
         window_size,
@@ -70,6 +71,7 @@ CREATE TABLE house_forecast (
     house_id       INTEGER NOT NULL,
 
     forecast_load   DOUBLE PRECISION NOT NULL,
+    prediction_latency DOUBLE PRECISION NOT NULL,
 
     PRIMARY KEY (
         window_size,

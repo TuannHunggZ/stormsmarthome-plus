@@ -30,6 +30,7 @@ public class Bolt_average extends BaseRichBolt {
 	private final String inputFieldHouseId;
 	private final String inputFieldWindowSize;
 	private final String inputFieldTimestamp;
+	private final String inputFieldTriggerTimestampMillis;
 
 	private final String outputPlugStreamId;
 	private final String outputHouseStreamId;
@@ -59,6 +60,7 @@ public class Bolt_average extends BaseRichBolt {
 		this.inputFieldHouseId = "houseId";
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
+		this.inputFieldTriggerTimestampMillis = "triggerTimestampMillis";
 		this.outputPlugStreamId = "current-plug-average";
 		this.outputHouseStreamId = "current-house-average";
 		this.outputFieldWindowSize = "windowSize";
@@ -112,6 +114,7 @@ public class Bolt_average extends BaseRichBolt {
 			new Fields(
 				outputFieldWindowSize,
 				outputFieldTimestamp,
+				inputFieldTriggerTimestampMillis,
 				outputFieldSliceIndexInDay,
 				outputFieldHouseId,
 				outputFieldHouseholdId,
@@ -125,6 +128,7 @@ public class Bolt_average extends BaseRichBolt {
 			new Fields(
 				outputFieldWindowSize,
 				outputFieldTimestamp,
+				inputFieldTriggerTimestampMillis,
 				outputFieldSliceIndexInDay,
 				outputFieldHouseId,
 				outputFieldCurrentAverage
@@ -162,6 +166,7 @@ public class Bolt_average extends BaseRichBolt {
 	private void processPunctuation(Tuple input) {
 		int windowSize = input.getIntegerByField(inputFieldWindowSize);
 		long timestamp = input.getLongByField(inputFieldTimestamp);
+		long triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
 
 		LOGGER.info("Received punctuation for window {}m timestamp {}", windowSize, timestamp);
 		LOGGER.info("Processing {} houses for window {}m timestamp {}", accumulators.size(), windowSize, timestamp);
@@ -170,7 +175,7 @@ public class Bolt_average extends BaseRichBolt {
 		int emittedHouseCount = 0;
 
 		for (Map.Entry<Integer, Map<PlugKey, AverageAccumulator>> houseEntry : accumulators.entrySet()) {
-			emittedPlugCount += emitAverages(windowSize, timestamp, houseEntry.getKey(), houseEntry.getValue());
+			emittedPlugCount += emitAverages(windowSize, timestamp, triggerTimestampMillis, houseEntry.getKey(), houseEntry.getValue());
 			emittedHouseCount += 1;
 		}
 
@@ -178,7 +183,7 @@ public class Bolt_average extends BaseRichBolt {
 		cleanupProcessedEvents();
 	}
 
-	private int emitAverages(int windowSize, long timestamp, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
+	private int emitAverages(int windowSize, long timestamp, long triggerTimestampMillis, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {
 		double houseAverage = 0.0d;
     	int emittedPlugCount = 0;
 		int sliceIndexInDay = (int) Math.floorDiv(timestamp % 86400L, windowSize * 60L);
@@ -193,6 +198,7 @@ public class Bolt_average extends BaseRichBolt {
 				new Values(
 					windowSize,
 					timestamp,
+					triggerTimestampMillis,
 					sliceIndexInDay,
 					houseId,
 					plugKey.householdId,
@@ -213,6 +219,7 @@ public class Bolt_average extends BaseRichBolt {
 			new Values(
 				windowSize,
 				timestamp,
+				triggerTimestampMillis,
 				sliceIndexInDay,
 				houseId,
 				houseAverage

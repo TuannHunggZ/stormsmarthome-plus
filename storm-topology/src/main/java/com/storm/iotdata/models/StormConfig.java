@@ -257,7 +257,7 @@ public class StormConfig {
     // BOLT-PLUG-FORECAST
     // =====================================================================
     // SQL template for plug forecast inserts.
-    private static final String plugForecastInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, forecast_load) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
+    private static final String plugForecastInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, household_id, plug_id, forecast_load, prediction_latency) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
     public static String getPlugForecastInsertSql() {
         return plugForecastInsertSql;
@@ -267,7 +267,7 @@ public class StormConfig {
     // BOLT-HOUSE-FORECAST
     // =====================================================================
     // SQL template for house forecast inserts.
-    private static final String houseForecastInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, forecast_load) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING";
+    private static final String houseForecastInsertSql = "INSERT INTO %s (window_size, timestamp, house_id, forecast_load, prediction_latency) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
     public static String getHouseForecastInsertSql() {
         return houseForecastInsertSql;

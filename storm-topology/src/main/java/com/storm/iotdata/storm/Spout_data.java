@@ -53,6 +53,7 @@ public class Spout_data extends BaseRichSpout {
 	private final String fieldHouseholdId;
 	private final String fieldHouseId;
 	private final String fieldWindowSize;
+	private final String fieldTriggerTimestampMillis;
 	private final int propertyLoad;
 	private final int connectionTimeoutSeconds;
 	private final List<Integer> timeSliceMinutes;
@@ -82,6 +83,7 @@ public class Spout_data extends BaseRichSpout {
 		this.fieldHouseholdId = "householdId";
 		this.fieldHouseId = "houseId";
 		this.fieldWindowSize = "windowSize";
+		this.fieldTriggerTimestampMillis = "triggerTimestampMillis";
 		this.propertyLoad = StormConfig.getPropertyLoad();
 		this.connectionTimeoutSeconds = StormConfig.getConnectionTimeoutSeconds();
 		this.eventQueue = new LinkedBlockingQueue<>(this.queueCapacity);
@@ -152,7 +154,7 @@ public class Spout_data extends BaseRichSpout {
 		for (Integer timeSlice : timeSliceMinutes) {
 			declarer.declareStream(
 				punctuationStreamIds.get(timeSlice),
-				new Fields(fieldWindowSize, fieldTimestamp)
+				new Fields(fieldWindowSize, fieldTimestamp, fieldTriggerTimestampMillis)
 			);
 		}
 	}
@@ -368,7 +370,7 @@ public class Spout_data extends BaseRichSpout {
 		String punctuationStreamId = punctuationStreamIds.get(event.windowSizeMinutes);
 		collector.emit(
 			punctuationStreamId,
-			new Values(event.windowSizeMinutes, event.timestamp),
+			new Values(event.windowSizeMinutes, event.timestamp, System.currentTimeMillis()),
 			punctuationStreamId + "-" + event.timestamp
 		);
 		LOGGER.info(

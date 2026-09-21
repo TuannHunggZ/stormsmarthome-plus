@@ -34,6 +34,7 @@ public class Bolt_plugMedian extends BaseRichBolt {
 
 	private final String inputFieldWindowSize;
 	private final String inputFieldTimestamp;
+	private final String inputFieldTriggerTimestampMillis;
 	private final String jdbcUrl;
 	private final String jdbcUser;
 	private final String jdbcPassword;
@@ -58,6 +59,7 @@ public class Bolt_plugMedian extends BaseRichBolt {
 	public Bolt_plugMedian() {
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
+		this.inputFieldTriggerTimestampMillis = "triggerTimestampMillis";
 		this.jdbcUrl = StormConfig.getJdbcUrl();
 		this.jdbcUser = StormConfig.getJdbcUser();
 		this.jdbcPassword = StormConfig.getJdbcPassword();
@@ -100,6 +102,7 @@ public class Bolt_plugMedian extends BaseRichBolt {
             new Fields(
                 outputFieldWindowSize,
                 outputFieldTimestamp,
+				inputFieldTriggerTimestampMillis,
                 outputFieldHouseId,
                 outputFieldHouseholdId,
                 outputFieldPlugId,
@@ -126,6 +129,7 @@ public class Bolt_plugMedian extends BaseRichBolt {
 	private void processPunctuation(Tuple input) throws SQLException {
 		int windowSize = input.getIntegerByField(inputFieldWindowSize);
 		long timestamp = input.getLongByField(inputFieldTimestamp);
+		long triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
 		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
 		long forecastTimestamp = timestamp + (2L * windowSizeSeconds);
 		long dayStrideSeconds = calculateSlicesPerDay(windowSize) * windowSizeSeconds;
@@ -138,7 +142,7 @@ public class Bolt_plugMedian extends BaseRichBolt {
 			sliceIndexInDay,
 			forecastTimestamp - dayStrideSeconds
 		);
-		int processedPlugCount = emitMedian(windowSize, timestamp, historicalValues);
+		int processedPlugCount = emitMedian(windowSize, timestamp, triggerTimestampMillis, historicalValues);
 
 		LOGGER.info("Number of plugs processed: {}", processedPlugCount);
 	}
@@ -182,13 +186,13 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		}
 	}
 
-	private int emitMedian(int windowSize, long timestamp, Map<PlugKey, List<Double>> historicalValues) {
+	private int emitMedian(int windowSize, long timestamp, long triggerTimestampMillis, Map<PlugKey, List<Double>> historicalValues) {
 		int emittedCount = 0;
 
 		for (Map.Entry<PlugKey, List<Double>> entry : historicalValues.entrySet()) {
 			PlugKey plugKey = entry.getKey();
 			double archiveMedian = calculateMedian(entry.getValue());
-			emitMedian(windowSize, timestamp, plugKey, archiveMedian);
+			emitMedian(windowSize, timestamp, triggerTimestampMillis, plugKey, archiveMedian);
 			emittedCount += 1;
 		}
 
@@ -214,12 +218,13 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		return sortedValues.get(middleIndex);
 	}
 
-	private void emitMedian(int windowSize, long timestamp, PlugKey plugKey, double archiveMedian) {
+	private void emitMedian(int windowSize, long timestamp, long triggerTimestampMillis, PlugKey plugKey, double archiveMedian) {
 		collector.emit(
 			outputStreamId,
 			new Values(
 				windowSize,
 				timestamp,
+				triggerTimestampMillis,
 				plugKey.houseId,
 				plugKey.householdId,
 				plugKey.plugId,

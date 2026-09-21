@@ -37,6 +37,7 @@ public class Bolt_houseForecast extends BaseRichBolt {
 	private final String inputMedianStreamId;
 	private final String inputFieldWindowSize;
 	private final String inputFieldTimestamp;
+	private final String inputFieldTriggerTimestampMillis;
 	private final String inputFieldHouseId;
 	private final String inputFieldCurrentAverage;
 	private final String inputFieldArchiveMedian;
@@ -60,6 +61,7 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		this.inputMedianStreamId = "archive-house-median";
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
+		this.inputFieldTriggerTimestampMillis = "triggerTimestampMillis";
 		this.inputFieldHouseId = "houseId";
 		this.inputFieldCurrentAverage = "currentAverage";
 		this.inputFieldArchiveMedian = "archiveMedian";
@@ -111,17 +113,18 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		ForecastKey forecastKey = readForecastKey(input);
 		ForecastState forecastState = forecastStates.computeIfAbsent(forecastKey, ignored -> new ForecastState());
 		forecastState.average = input.getDoubleByField(inputFieldCurrentAverage);
+		forecastState.triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
 		forecastState.hasAverage = true;
 
 		if (forecastKey.timestamp < minimumDatasetTimestampSeconds + SECONDS_PER_DAY) {
-			persistForecast(forecastKey, forecastState.average);
+			persistForecast(forecastKey, forecastState.average, forecastState);
 			forecastStates.remove(forecastKey);
 			return;
 		}
 
 		if (forecastState.hasMedian) {
 			double forecast = (forecastState.average + forecastState.median) / 2.0d;
-			persistForecast(forecastKey, forecast);
+			persistForecast(forecastKey, forecast, forecastState);
 			forecastStates.remove(forecastKey);
 		}
 	}
@@ -130,11 +133,12 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		ForecastKey forecastKey = readForecastKey(input);
 		ForecastState forecastState = forecastStates.computeIfAbsent(forecastKey, ignored -> new ForecastState());
 		forecastState.median = input.getDoubleByField(inputFieldArchiveMedian);
+		forecastState.triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
 		forecastState.hasMedian = true;
 
 		if (forecastState.hasAverage) {
 			double forecast = (forecastState.average + forecastState.median) / 2.0d;
-			persistForecast(forecastKey, forecast);
+			persistForecast(forecastKey, forecast, forecastState);
 			forecastStates.remove(forecastKey);
 		}
 	}
@@ -149,7 +153,7 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		);
 	}
 
-	private void persistForecast(ForecastKey forecastKey, double forecast) throws SQLException {
+	private void persistForecast(ForecastKey forecastKey, double forecast, ForecastState forecastState) throws SQLException {
 		insertStatement.clearParameters();
 		insertStatement.setInt(1, forecastKey.windowSize);
 		insertStatement.setTimestamp(
@@ -158,8 +162,13 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		);
 		insertStatement.setInt(3, forecastKey.houseId);
 		insertStatement.setDouble(4, forecast);
+		insertStatement.setDouble(5, predictionLatencyMillis(forecastState));
 		insertStatement.executeUpdate();
 		connection.commit();
+	}
+
+	private double predictionLatencyMillis(ForecastState forecastState) {
+		return (double) (System.currentTimeMillis() - forecastState.triggerTimestampMillis);
 	}
 
 	private Timestamp toSqlTimestamp(long epochSeconds) {
@@ -240,5 +249,6 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		private Double median;
 		private boolean hasAverage;
 		private boolean hasMedian;
+		private long triggerTimestampMillis;
 	}
 }

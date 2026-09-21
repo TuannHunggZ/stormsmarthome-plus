@@ -33,6 +33,7 @@ public class Bolt_houseMedian extends BaseRichBolt {
 
 	private final String inputFieldWindowSize;
 	private final String inputFieldTimestamp;
+	private final String inputFieldTriggerTimestampMillis;
 	private final String jdbcUrl;
 	private final String jdbcUser;
 	private final String jdbcPassword;
@@ -57,6 +58,7 @@ public class Bolt_houseMedian extends BaseRichBolt {
 	public Bolt_houseMedian() {
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
+		this.inputFieldTriggerTimestampMillis = "triggerTimestampMillis";
 		this.jdbcUrl = StormConfig.getJdbcUrl();
 		this.jdbcUser = StormConfig.getJdbcUser();
 		this.jdbcPassword = StormConfig.getJdbcPassword();
@@ -97,6 +99,7 @@ public class Bolt_houseMedian extends BaseRichBolt {
             new Fields(
                 outputFieldWindowSize,
                 outputFieldTimestamp,
+				inputFieldTriggerTimestampMillis,
                 outputFieldHouseId,
                 outputFieldArchiveMedian
             )
@@ -121,6 +124,7 @@ public class Bolt_houseMedian extends BaseRichBolt {
 	private void processPunctuation(Tuple input) throws SQLException {
 		int windowSize = input.getIntegerByField(inputFieldWindowSize);
 		long timestamp = input.getLongByField(inputFieldTimestamp);
+		long triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
 		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
 		long forecastTimestamp = timestamp + (2L * windowSizeSeconds);
 		long dayStrideSeconds = calculateSlicesPerDay(windowSize) * windowSizeSeconds;
@@ -133,7 +137,7 @@ public class Bolt_houseMedian extends BaseRichBolt {
 			sliceIndexInDay,
 			forecastTimestamp - dayStrideSeconds
 		);
-		int processedHouseCount = emitMedian(windowSize, timestamp, historicalValues);
+		int processedHouseCount = emitMedian(windowSize, timestamp, triggerTimestampMillis, historicalValues);
 
 		LOGGER.info("Number of houses processed: {}", processedHouseCount);
 	}
@@ -177,13 +181,13 @@ public class Bolt_houseMedian extends BaseRichBolt {
 		}
 	}
 
-	private int emitMedian(int windowSize, long timestamp, Map<Integer, List<Double>> historicalValues) {
+	private int emitMedian(int windowSize, long timestamp, long triggerTimestampMillis, Map<Integer, List<Double>> historicalValues) {
 		int emittedCount = 0;
 
 		for (Map.Entry<Integer, List<Double>> entry : historicalValues.entrySet()) {
 			int houseId = entry.getKey();
 			double archiveMedian = calculateMedian(entry.getValue());
-			emitMedian(windowSize, timestamp, houseId, archiveMedian);
+			emitMedian(windowSize, timestamp, triggerTimestampMillis, houseId, archiveMedian);
 			emittedCount += 1;
 		}
 
@@ -209,12 +213,13 @@ public class Bolt_houseMedian extends BaseRichBolt {
 		return sortedValues.get(middleIndex);
 	}
 
-	private void emitMedian(int windowSize, long timestamp, int houseId, double archiveMedian) {
+	private void emitMedian(int windowSize, long timestamp, long triggerTimestampMillis, int houseId, double archiveMedian) {
 		collector.emit(
 			outputStreamId,
 			new Values(
 				windowSize,
 				timestamp,
+				triggerTimestampMillis,
 				houseId,
 				archiveMedian
 			)
