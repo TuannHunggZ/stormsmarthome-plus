@@ -1,12 +1,14 @@
 services:
   mqtt-broker:
-    image: mqtt-broker-iotdata
+    image: eclipse-mosquitto:latest
     container_name: mqtt-broker
-    pull_policy: never
     networks:
       storm_network:
     ports:
       - 1883:1883
+    volumes:
+      - ./mqtt-broker/mosquitto.conf:/etc/mosquitto/mosquitto.conf:ro
+    entrypoint: ["mosquitto", "-c", "/etc/mosquitto/mosquitto.conf"]
 
   timescaledb:
     image: timescale/timescaledb:latest-pg17
