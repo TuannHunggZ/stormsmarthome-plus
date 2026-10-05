@@ -44,8 +44,8 @@ timescaledb/
 │                                                         │
 │  01-init.sql           → Tạo schema (8 tables)          │
 │  02-load-data.sql      → COPY CSV → measurements        │
-│  03-generate-average.sql → Tính average (8 window)      │
-│  04-generate-forecast.sql → Tính forecast (8 window)    │
+│  03-generate-average.sql → Tính average (5 window)      │
+│  04-generate-forecast.sql → Tính forecast (5 window)    │
 │  99-finish.sql         → Đánh dấu hoàn tất              │
 └──────────────────────┬──────────────────────────────────┘
                        │
