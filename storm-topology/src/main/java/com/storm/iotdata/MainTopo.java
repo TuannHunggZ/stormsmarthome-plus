@@ -32,9 +32,14 @@ public class MainTopo {
             boltDeclarer.allGrouping("spout-data", "punctuation-" + windowSize + "m");
         }
 
-        BoltDeclarer persistenceBolt = builder.setBolt(
-            "bolt-average-persistence",
-            new Bolt_averagePersistence(),
+        BoltDeclarer plugPersistenceBolt = builder.setBolt(
+            "bolt-plug-average-persistence",
+            new Bolt_plugAveragePersistence(),
+            1
+        );
+        BoltDeclarer housePersistenceBolt = builder.setBolt(
+            "bolt-house-average-persistence",
+            new Bolt_houseAveragePersistence(),
             1
         );
 
@@ -43,8 +48,11 @@ public class MainTopo {
 
         for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
             String boltId = "bolt-average-" + windowSize + "m";
-            persistenceBolt.allGrouping(boltId, plugAverageStreamId);
-            persistenceBolt.allGrouping(boltId, houseAverageStreamId);
+            String punctuationStreamId = "punctuation-" + windowSize + "m";
+            plugPersistenceBolt.shuffleGrouping(boltId, plugAverageStreamId);
+            plugPersistenceBolt.allGrouping(boltId, punctuationStreamId);
+            housePersistenceBolt.shuffleGrouping(boltId, houseAverageStreamId);
+            housePersistenceBolt.allGrouping(boltId, punctuationStreamId);
         }
 
         BoltDeclarer anomalyDetectionBolt = builder.setBolt(

@@ -134,6 +134,14 @@ public class Bolt_average extends BaseRichBolt {
 				outputFieldCurrentAverage
 			)
 		);
+
+		declarer.declareStream(
+			getPunctuationStreamId(),
+			new Fields(
+				inputFieldWindowSize,
+				inputFieldTimestamp
+			)
+		);
 	}
 
 	/**
@@ -181,6 +189,10 @@ public class Bolt_average extends BaseRichBolt {
 
 		LOGGER.info("Emitted {} plug averages and {} house averages for window {}m timestamp {}", emittedPlugCount, emittedHouseCount, windowSize, timestamp);
 		cleanupProcessedEvents();
+		collector.emit(
+			getPunctuationStreamId(),
+			new Values(windowSize, timestamp)
+		);
 	}
 
 	private int emitAverages(int windowSize, long timestamp, long triggerTimestampMillis, int houseId, Map<PlugKey, AverageAccumulator> houseAccumulators) {

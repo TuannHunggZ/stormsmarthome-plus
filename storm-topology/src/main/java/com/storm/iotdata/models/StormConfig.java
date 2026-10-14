@@ -212,18 +212,11 @@ public class StormConfig {
     // =====================================================================
     // BOLT-AVERAGE-PERSISTENCE
     // =====================================================================
-    // Number of records to buffer before flushing a batch.
-    private static final int batchSize = 1000;
-
     // SQL template for plug inserts.
     private static final String plugAverageInsertSql = "INSERT INTO %s (window_size, slice_index_in_day, timestamp, house_id, household_id, plug_id, average_load) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
 
     // SQL template for house inserts.
     private static final String houseAverageInsertSql = "INSERT INTO %s (window_size, slice_index_in_day, timestamp, house_id, average_load) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
-
-    public static int getBatchSize() {
-        return batchSize;
-    }
 
     public static String getPlugAverageInsertSql() {
         return plugAverageInsertSql;
