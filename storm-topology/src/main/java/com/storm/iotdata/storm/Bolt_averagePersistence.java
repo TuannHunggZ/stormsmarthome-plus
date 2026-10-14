@@ -145,8 +145,9 @@ public class Bolt_averagePersistence extends BaseRichBolt {
 		houseStatement.addBatch();
 		houseBatchCount += 1;
 
-		// House aggregates are infrequent, so flush immediately.
-        flushHouseBatch();
+		if (houseBatchCount >= batchSize / 20) {
+			flushHouseBatch();
+		}
 	}
 
 	private void flushPlugBatch() throws SQLException {
