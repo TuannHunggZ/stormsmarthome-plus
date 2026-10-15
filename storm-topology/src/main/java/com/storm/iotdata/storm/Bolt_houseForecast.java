@@ -8,6 +8,9 @@ import org.apache.storm.topology.base.BaseRichBolt;
 import org.apache.storm.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -15,7 +18,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -34,19 +36,19 @@ public class Bolt_houseForecast extends BaseRichBolt {
 	private final String insertSql;
 	private final String tableName;
 	private final String inputAverageStreamId;
-	private final String inputMedianStreamId;
+	private final String inputPunctuationStreamPrefix;
 	private final String inputFieldWindowSize;
 	private final String inputFieldTimestamp;
 	private final String inputFieldTriggerTimestampMillis;
 	private final String inputFieldHouseId;
 	private final String inputFieldCurrentAverage;
-	private final String inputFieldArchiveMedian;
 	private final long minimumDatasetTimestampSeconds;
 
 	private transient OutputCollector collector;
-	private final Map<ForecastKey, ForecastState> forecastStates;
 	private transient Connection connection;
 	private transient PreparedStatement insertStatement;
+	private transient JedisPool redisPool;
+	private int forecastBatchCount;
 
 	/**
 	 * Creates the bolt with configured stream ids and field mappings.
@@ -58,21 +60,24 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		this.tableName = StormConfig.getHouseForecastTableName();
 		this.insertSql = String.format(StormConfig.getHouseForecastInsertSql(), tableName);
 		this.inputAverageStreamId = "current-house-average";
-		this.inputMedianStreamId = "archive-house-median";
+		this.inputPunctuationStreamPrefix = "punctuation-";
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
 		this.inputFieldTriggerTimestampMillis = "triggerTimestampMillis";
 		this.inputFieldHouseId = "houseId";
 		this.inputFieldCurrentAverage = "currentAverage";
-		this.inputFieldArchiveMedian = "archiveMedian";
 		this.minimumDatasetTimestampSeconds = StormConfig.getMinimumDatasetTimestampSeconds();
-		this.forecastStates = new HashMap<>();
 	}
 
 	@Override
 	public void prepare(Map<String, Object> stormConf, TopologyContext context, OutputCollector collector) {
 		this.collector = collector;
 		initializeDatabase();
+		redisPool = new JedisPool(
+			new JedisPoolConfig(),
+			StormConfig.getRedisHost(),
+			StormConfig.getRedisPort()
+		);
 	}
 
 	@Override
@@ -82,8 +87,8 @@ public class Bolt_houseForecast extends BaseRichBolt {
 
 			if (inputAverageStreamId.equals(sourceStreamId)) {
 				processAverageTuple(input);
-			} else if (inputMedianStreamId.equals(sourceStreamId)) {
-				processMedianTuple(input);
+			} else if (sourceStreamId != null && sourceStreamId.startsWith(inputPunctuationStreamPrefix)) {
+				flushBatch();
 			} else {
 				LOGGER.debug("Ignoring tuple from unexpected stream {}", sourceStreamId);
 			}
@@ -105,41 +110,36 @@ public class Bolt_houseForecast extends BaseRichBolt {
 
 	@Override
 	public void cleanup() {
-		forecastStates.clear();
-		closeResources();
+		try {
+			flushBatch();
+		} catch (SQLException exception) {
+			LOGGER.error("Failed to flush house forecast batch during cleanup", exception);
+		} finally {
+			closeResources();
+		}
 	}
 
 	private void processAverageTuple(Tuple input) throws SQLException {
 		ForecastKey forecastKey = readForecastKey(input);
-		ForecastState forecastState = forecastStates.computeIfAbsent(forecastKey, ignored -> new ForecastState());
-		forecastState.average = input.getDoubleByField(inputFieldCurrentAverage);
-		forecastState.triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
-		forecastState.hasAverage = true;
+		double currentAverage = input.getDoubleByField(inputFieldCurrentAverage);
+		long triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
 
 		if (forecastKey.timestamp < minimumDatasetTimestampSeconds + SECONDS_PER_DAY) {
-			persistForecast(forecastKey, forecastState.average, forecastState);
-			forecastStates.remove(forecastKey);
+			addForecastToBatch(forecastKey, currentAverage, triggerTimestampMillis);
 			return;
 		}
 
-		if (forecastState.hasMedian) {
-			double forecast = (forecastState.average + forecastState.median) / 2.0d;
-			persistForecast(forecastKey, forecast, forecastState);
-			forecastStates.remove(forecastKey);
-		}
-	}
+		String medianKey = buildMedianKey(forecastKey);
+		try (Jedis jedis = redisPool.getResource()) {
+			String medianValue = jedis.get(medianKey);
+			if (medianValue == null) {
+				LOGGER.warn("Median cache miss for key {}", medianKey);
+				return;
+			}
 
-	private void processMedianTuple(Tuple input) throws SQLException {
-		ForecastKey forecastKey = readForecastKey(input);
-		ForecastState forecastState = forecastStates.computeIfAbsent(forecastKey, ignored -> new ForecastState());
-		forecastState.median = input.getDoubleByField(inputFieldArchiveMedian);
-		forecastState.triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
-		forecastState.hasMedian = true;
-
-		if (forecastState.hasAverage) {
-			double forecast = (forecastState.average + forecastState.median) / 2.0d;
-			persistForecast(forecastKey, forecast, forecastState);
-			forecastStates.remove(forecastKey);
+			double archiveMedian = Double.parseDouble(medianValue);
+			double forecast = (currentAverage + archiveMedian) / 2.0d;
+			addForecastToBatch(forecastKey, forecast, triggerTimestampMillis);
 		}
 	}
 
@@ -153,7 +153,22 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		);
 	}
 
-	private void persistForecast(ForecastKey forecastKey, double forecast, ForecastState forecastState) throws SQLException {
+	private String buildMedianKey(ForecastKey forecastKey) {
+		long forecastTimestamp = forecastKey.timestamp
+			+ (2L * forecastKey.windowSize * SECONDS_PER_MINUTE);
+		int sliceIndexInDay = (int) Math.floorMod(
+			forecastTimestamp,
+			SECONDS_PER_DAY
+		) / (forecastKey.windowSize * (int) SECONDS_PER_MINUTE);
+		return String.format(
+			"median:house:%d:%d:%d",
+			forecastKey.windowSize,
+			sliceIndexInDay,
+			forecastKey.houseId
+		);
+	}
+
+	private void addForecastToBatch(ForecastKey forecastKey, double forecast, long triggerTimestampMillis) throws SQLException {
 		insertStatement.clearParameters();
 		insertStatement.setInt(1, forecastKey.windowSize);
 		insertStatement.setTimestamp(
@@ -162,13 +177,28 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		);
 		insertStatement.setInt(3, forecastKey.houseId);
 		insertStatement.setDouble(4, forecast);
-		insertStatement.setDouble(5, predictionLatencyMillis(forecastState));
-		insertStatement.executeUpdate();
-		connection.commit();
+		insertStatement.setDouble(5, predictionLatencyMillis(triggerTimestampMillis));
+		insertStatement.addBatch();
+		forecastBatchCount += 1;
 	}
 
-	private double predictionLatencyMillis(ForecastState forecastState) {
-		return (double) (System.currentTimeMillis() - forecastState.triggerTimestampMillis);
+	private double predictionLatencyMillis(long triggerTimestampMillis) {
+		return (double) (System.currentTimeMillis() - triggerTimestampMillis);
+	}
+
+	private void flushBatch() throws SQLException {
+		if (forecastBatchCount == 0) {
+			return;
+		}
+
+		try {
+			int[] results = insertStatement.executeBatch();
+			connection.commit();
+			insertStatement.clearBatch();
+			LOGGER.info("Flushed house forecast batch with {} records", results.length);
+		} finally {
+			forecastBatchCount = 0;
+		}
 	}
 
 	private Timestamp toSqlTimestamp(long epochSeconds) {
@@ -204,6 +234,9 @@ public class Bolt_houseForecast extends BaseRichBolt {
 			}
 			if (connection != null) {
 				connection.close();
+			}
+			if (redisPool != null) {
+				redisPool.close();
 			}
 			LOGGER.info("Closed PostgreSQL resources successfully");
 		} catch (SQLException exception) {
@@ -243,12 +276,4 @@ public class Bolt_houseForecast extends BaseRichBolt {
 		}
 	}
 
-	private static final class ForecastState {
-
-		private Double average;
-		private Double median;
-		private boolean hasAverage;
-		private boolean hasMedian;
-		private long triggerTimestampMillis;
-	}
 }

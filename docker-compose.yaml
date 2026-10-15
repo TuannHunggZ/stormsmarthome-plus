@@ -26,10 +26,15 @@ services:
       - ./timescaledb/dump/restore.sh:/docker-entrypoint-initdb.d/restore.sh
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "psql -U postgres -d iotdata -tAc \"SELECT EXISTS (SELECT 1 FROM plug_forecast_expected LIMIT 1)\" | grep -q t"
-        ]
+        - CMD-SHELL
+        - >-
+          pg_isready -U postgres -d iotdata &&
+          psql -U postgres -d iotdata -tAc
+          "SELECT EXISTS (
+            SELECT 1
+            FROM public.plug_forecast_expected
+            LIMIT 1
+          )" | grep -q t
       interval: 5s
       timeout: 5s
       retries: 20
@@ -44,6 +49,31 @@ services:
     networks:
       storm_network:
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis-cache-loader:
+    image: redis-cache-loader:v1
+    container_name: redis-cache-loader
+    pull_policy: never
+    environment:
+      - POSTGRES_HOST=timescaledb
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=iotdata
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379
+      - REDIS_BATCH_SIZE=1000
+    networks:
+      storm_network:
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   zookeeper:
     image: zookeeper:3.8.5
@@ -68,7 +98,10 @@ services:
     networks:
       storm_network:
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_started
+      redis-cache-loader:
+        condition: service_completed_successfully
 
   supervisor1:
     image: storm:2.5.0
@@ -145,10 +178,10 @@ services:
         condition: service_healthy
 
   webapp:
-    build:
-      context: ./webapp
+    image: webapp:v1
     container_name: webapp
     hostname: webapp
+    pull_policy: never
     environment:
       - PORT=3000
       - REDIS_HOST=redis

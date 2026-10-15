@@ -83,28 +83,6 @@ public class MainTopo {
             );
         }
 
-        BoltDeclarer medianBolt = builder.setBolt(
-            "bolt-plug-median",
-            new Bolt_plugMedian(),
-            1
-        );
-
-        String punctuationStreamPrefix = "punctuation-";
-        for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
-            medianBolt.allGrouping("spout-data", punctuationStreamPrefix + windowSize + "m");
-        }
-
-        BoltDeclarer houseMedianBolt = builder.setBolt(
-            "bolt-house-median",
-            new Bolt_houseMedian(),
-            1
-        );
-
-        String housePunctuationStreamPrefix = "punctuation-";
-        for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
-            houseMedianBolt.allGrouping("spout-data", housePunctuationStreamPrefix + windowSize + "m");
-        }
-
         BoltDeclarer houseForecastBolt = builder.setBolt(
             "bolt-house-forecast",
             new Bolt_houseForecast(),
@@ -112,7 +90,6 @@ public class MainTopo {
         );
 
         String houseForecastAverageStreamId = "current-house-average";
-        String houseForecastMedianStreamId = "archive-house-median";
 
         for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
             houseForecastBolt.fieldsGrouping(
@@ -120,13 +97,11 @@ public class MainTopo {
                 houseForecastAverageStreamId,
                 new Fields("windowSize", "timestamp", "houseId")
             );
+            houseForecastBolt.allGrouping(
+                "bolt-average-" + windowSize + "m",
+                "punctuation-" + windowSize + "m"
+            );
         }
-
-        houseForecastBolt.fieldsGrouping(
-            "bolt-house-median",
-            houseForecastMedianStreamId,
-            new Fields("windowSize", "timestamp", "houseId")
-        );
 
         BoltDeclarer forecastBolt = builder.setBolt(
             "bolt-plug-forecast",
@@ -135,7 +110,6 @@ public class MainTopo {
         );
 
         String inputAverageStreamId = "current-plug-average";
-        String inputMedianStreamId = "archive-plug-median";
 
         for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
             forecastBolt.fieldsGrouping(
@@ -143,13 +117,11 @@ public class MainTopo {
                 inputAverageStreamId,
                 new Fields("windowSize", "timestamp", "houseId", "householdId", "plugId")
             );
+            forecastBolt.allGrouping(
+                "bolt-average-" + windowSize + "m",
+                "punctuation-" + windowSize + "m"
+            );
         }
-
-        forecastBolt.fieldsGrouping(
-            "bolt-plug-median",
-            inputMedianStreamId,
-            new Fields("windowSize", "timestamp", "houseId", "householdId", "plugId")
-        );
 
         Config config = new Config();
         config.setDebug(true);

@@ -75,6 +75,8 @@ cd storm-topology
 mvn install
 cd ..
 docker build -t stormexporter:v1 ./storm-exporter
+docker build -t webapp:v1 ./webapp
+docker build -t redis-cache-loader:v1 ./redis-cache-loader
 ```
 
 ### 2. Khởi động các dịch vụ
