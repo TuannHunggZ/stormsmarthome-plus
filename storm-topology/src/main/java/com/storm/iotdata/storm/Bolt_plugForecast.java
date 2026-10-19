@@ -5,7 +5,9 @@ import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichBolt;
+import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
+import org.apache.storm.tuple.Values;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
@@ -37,6 +39,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 	private final String tableName;
 	private final String inputAverageStreamId;
 	private final String inputPunctuationStreamPrefix;
+	private final String outputCompletionStreamId;
 	private final String inputFieldWindowSize;
 	private final String inputFieldTimestamp;
 	private final String inputFieldTriggerTimestampMillis;
@@ -63,6 +66,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 		this.insertSql = String.format(StormConfig.getPlugForecastInsertSql(), tableName);
 		this.inputAverageStreamId = "current-plug-average";
 		this.inputPunctuationStreamPrefix = "punctuation-";
+		this.outputCompletionStreamId = "plug-forecast-persisted";
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
 		this.inputFieldTriggerTimestampMillis = "triggerTimestampMillis";
@@ -92,7 +96,7 @@ public class Bolt_plugForecast extends BaseRichBolt {
 			if (inputAverageStreamId.equals(sourceStreamId)) {
 				processAverageTuple(input);
 			} else if (sourceStreamId != null && sourceStreamId.startsWith(inputPunctuationStreamPrefix)) {
-				flushBatch();
+				flushBatch(input);
 			} else {
 				LOGGER.debug("Ignoring tuple from unexpected stream {}", sourceStreamId);
 			}
@@ -109,13 +113,16 @@ public class Bolt_plugForecast extends BaseRichBolt {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		// No output streams.
+		declarer.declareStream(
+			outputCompletionStreamId,
+			new Fields("windowSize", "timestamp")
+		);
 	}
 
 	@Override
 	public void cleanup() {
 		try {
-			flushBatch();
+			flushBatch(null);
 		} catch (SQLException exception) {
 			LOGGER.error("Failed to flush plug forecast batch during cleanup", exception);
 		} finally {
@@ -196,8 +203,9 @@ public class Bolt_plugForecast extends BaseRichBolt {
 		return (double) (System.currentTimeMillis() - triggerTimestampMillis);
 	}
 
-	private void flushBatch() throws SQLException {
+	private void flushBatch(Tuple punctuation) throws SQLException {
 		if (forecastBatchCount == 0) {
+			emitCompletion(punctuation);
 			return;
 		}
 
@@ -208,6 +216,20 @@ public class Bolt_plugForecast extends BaseRichBolt {
 			LOGGER.info("Flushed plug forecast batch with {} records", results.length);
 		} finally {
 			forecastBatchCount = 0;
+		}
+
+		emitCompletion(punctuation);
+	}
+
+	private void emitCompletion(Tuple punctuation) {
+		if (punctuation != null) {
+			collector.emit(
+				outputCompletionStreamId,
+				new Values(
+					punctuation.getIntegerByField("windowSize"),
+					punctuation.getLongByField("timestamp")
+				)
+			);
 		}
 	}
 

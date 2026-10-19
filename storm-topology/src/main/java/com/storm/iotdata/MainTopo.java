@@ -17,11 +17,11 @@ public class MainTopo {
         builder.setSpout("spout-data", new Spout_data(), 1);
 
         for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
-            String boltId = "bolt-average-" + windowSize + "m";
+            String averageBoltId = "bolt-average-" + windowSize + "m";
             BoltDeclarer boltDeclarer = builder.setBolt(
-                boltId,
+                averageBoltId,
                 new Bolt_average(windowSize),
-                1
+                2
             );
 
             boltDeclarer.fieldsGrouping(
@@ -47,12 +47,12 @@ public class MainTopo {
         String houseAverageStreamId = "current-house-average";
 
         for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
-            String boltId = "bolt-average-" + windowSize + "m";
+            String averageBoltId = "bolt-average-" + windowSize + "m";
             String punctuationStreamId = "punctuation-" + windowSize + "m";
-            plugPersistenceBolt.shuffleGrouping(boltId, plugAverageStreamId);
-            plugPersistenceBolt.allGrouping(boltId, punctuationStreamId);
-            housePersistenceBolt.shuffleGrouping(boltId, houseAverageStreamId);
-            housePersistenceBolt.allGrouping(boltId, punctuationStreamId);
+            plugPersistenceBolt.shuffleGrouping(averageBoltId, plugAverageStreamId);
+            plugPersistenceBolt.allGrouping(averageBoltId, punctuationStreamId);
+            housePersistenceBolt.shuffleGrouping(averageBoltId, houseAverageStreamId);
+            housePersistenceBolt.allGrouping(averageBoltId, punctuationStreamId);
         }
 
         BoltDeclarer anomalyDetectionBolt = builder.setBolt(
@@ -86,16 +86,15 @@ public class MainTopo {
         BoltDeclarer houseForecastBolt = builder.setBolt(
             "bolt-house-forecast",
             new Bolt_houseForecast(),
-            1
+            2
         );
 
         String houseForecastAverageStreamId = "current-house-average";
 
         for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
-            houseForecastBolt.fieldsGrouping(
+            houseForecastBolt.shuffleGrouping(
                 "bolt-average-" + windowSize + "m",
-                houseForecastAverageStreamId,
-                new Fields("windowSize", "timestamp", "houseId")
+                houseForecastAverageStreamId
             );
             houseForecastBolt.allGrouping(
                 "bolt-average-" + windowSize + "m",
@@ -106,22 +105,49 @@ public class MainTopo {
         BoltDeclarer forecastBolt = builder.setBolt(
             "bolt-plug-forecast",
             new Bolt_plugForecast(),
-            1
+            2
         );
 
         String inputAverageStreamId = "current-plug-average";
 
         for (Integer windowSize : StormConfig.getTimeSliceMinutes()) {
-            forecastBolt.fieldsGrouping(
+            forecastBolt.shuffleGrouping(
                 "bolt-average-" + windowSize + "m",
-                inputAverageStreamId,
-                new Fields("windowSize", "timestamp", "houseId", "householdId", "plugId")
+                inputAverageStreamId
             );
             forecastBolt.allGrouping(
                 "bolt-average-" + windowSize + "m",
                 "punctuation-" + windowSize + "m"
             );
         }
+
+        BoltDeclarer medianBolt = builder.setBolt(
+            "bolt-plug-median",
+            new Bolt_plugMedian(),
+            1
+        );
+        medianBolt.allGrouping(
+            "bolt-plug-average-persistence",
+            "plug-average-persisted"
+        );
+        medianBolt.allGrouping(
+            "bolt-plug-forecast",
+            "plug-forecast-persisted"
+        );
+
+        BoltDeclarer houseMedianBolt = builder.setBolt(
+            "bolt-house-median",
+            new Bolt_houseMedian(),
+            1
+        );
+        houseMedianBolt.allGrouping(
+            "bolt-house-average-persistence",
+            "house-average-persisted"
+        );
+        houseMedianBolt.allGrouping(
+            "bolt-house-forecast",
+            "house-forecast-persisted"
+        );
 
         Config config = new Config();
         config.setDebug(true);

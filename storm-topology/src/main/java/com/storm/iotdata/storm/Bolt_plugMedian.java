@@ -1,13 +1,15 @@
 package com.storm.iotdata.storm;
 
 import com.storm.iotdata.models.StormConfig;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.Pipeline;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichBolt;
-import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
-import org.apache.storm.tuple.Values;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,10 +18,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -29,29 +28,22 @@ import java.util.Objects;
 public class Bolt_plugMedian extends BaseRichBolt {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Bolt_plugMedian.class);
-	private static final int MINUTES_PER_DAY = 1440;
 	private static final long SECONDS_PER_MINUTE = 60L;
 
 	private final String inputFieldWindowSize;
 	private final String inputFieldTimestamp;
-	private final String inputFieldTriggerTimestampMillis;
 	private final String jdbcUrl;
 	private final String jdbcUser;
 	private final String jdbcPassword;
 	private final String selectSqlTemplate;
-	private final String inputStreamIdPrefix;
-	private final String outputStreamId;
-	private final String outputFieldWindowSize;
-	private final String outputFieldTimestamp;
-	private final String outputFieldHouseId;
-	private final String outputFieldHouseholdId;
-	private final String outputFieldPlugId;
-	private final String outputFieldArchiveMedian;
-	private final long minimumDatasetTimestampSeconds;
+	private final String inputPersistenceStreamId;
+	private final String inputForecastStreamId;
 
 	private transient OutputCollector collector;
 	private transient Connection connection;
 	private transient PreparedStatement selectStatement;
+	private transient JedisPool redisPool;
+	private final Map<CompletionKey, CompletionState> completionStates;
 
 	/**
 	 * Creates the bolt with configured SQL and field mappings.
@@ -59,33 +51,36 @@ public class Bolt_plugMedian extends BaseRichBolt {
 	public Bolt_plugMedian() {
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
-		this.inputFieldTriggerTimestampMillis = "triggerTimestampMillis";
 		this.jdbcUrl = StormConfig.getJdbcUrl();
 		this.jdbcUser = StormConfig.getJdbcUser();
 		this.jdbcPassword = StormConfig.getJdbcPassword();
 		this.selectSqlTemplate = StormConfig.getPlugMedianSelectSqlTemplate();
-		this.inputStreamIdPrefix = "punctuation-";
-		this.outputStreamId = "archive-plug-median";
-		this.outputFieldWindowSize = "windowSize";
-		this.outputFieldTimestamp = "timestamp";
-		this.outputFieldHouseId = "houseId";
-		this.outputFieldHouseholdId = "householdId";
-		this.outputFieldPlugId = "plugId";
-		this.outputFieldArchiveMedian = "archiveMedian";
-		this.minimumDatasetTimestampSeconds = StormConfig.getMinimumDatasetTimestampSeconds();
+		this.inputPersistenceStreamId = "plug-average-persisted";
+		this.inputForecastStreamId = "plug-forecast-persisted";
+		this.completionStates = new HashMap<>();
 	}
 
 	@Override
 	public void prepare(Map<String, Object> stormConf, TopologyContext context, OutputCollector collector) {
 		this.collector = collector;
 		initializeDatabase();
+		redisPool = new JedisPool(
+			new JedisPoolConfig(),
+			StormConfig.getRedisHost(),
+			StormConfig.getRedisPort()
+		);
 	}
 
 	@Override
 	public void execute(Tuple input) {
 		try {
-			if (input.getSourceStreamId() != null && input.getSourceStreamId().startsWith(inputStreamIdPrefix)) {
-				processPunctuation(input);
+			String sourceStreamId = input.getSourceStreamId();
+			if (inputPersistenceStreamId.equals(sourceStreamId)) {
+				processCompletion(input, true);
+			} else if (inputForecastStreamId.equals(sourceStreamId)) {
+				processCompletion(input, false);
+			} else {
+				LOGGER.debug("Ignoring tuple from unexpected stream {}", sourceStreamId);
 			}
 			collector.ack(input);
 		} catch (SQLException exception) {
@@ -97,22 +92,12 @@ public class Bolt_plugMedian extends BaseRichBolt {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declareStream(
-            outputStreamId,
-            new Fields(
-                outputFieldWindowSize,
-                outputFieldTimestamp,
-				inputFieldTriggerTimestampMillis,
-                outputFieldHouseId,
-                outputFieldHouseholdId,
-                outputFieldPlugId,
-                outputFieldArchiveMedian
-            )
-        );
+		// Cache updater, no output streams.
 	}
 
 	@Override
 	public void cleanup() {
+		completionStates.clear();
 		closeResources();
 	}
 
@@ -126,111 +111,67 @@ public class Bolt_plugMedian extends BaseRichBolt {
 		}
 	}
 
-	private void processPunctuation(Tuple input) throws SQLException {
+	private void processCompletion(Tuple input, boolean persistenceCompleted) throws SQLException {
 		int windowSize = input.getIntegerByField(inputFieldWindowSize);
 		long timestamp = input.getLongByField(inputFieldTimestamp);
-		long triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
-		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
-		long forecastTimestamp = timestamp + (2L * windowSizeSeconds);
-		long dayStrideSeconds = calculateSlicesPerDay(windowSize) * windowSizeSeconds;
-		int sliceIndexInDay = calculateSliceIndexInDay(forecastTimestamp, windowSizeSeconds);
-
-		LOGGER.info("Forecast slice {} for window {}m", sliceIndexInDay, windowSize);
-
-		Map<PlugKey, List<Double>> historicalValues = loadHistoricalValues(
-			windowSize,
-			sliceIndexInDay,
-			forecastTimestamp - dayStrideSeconds
+		CompletionKey completionKey = new CompletionKey(windowSize, timestamp);
+		CompletionState completionState = completionStates.computeIfAbsent(
+			completionKey,
+			ignored -> new CompletionState()
 		);
-		int processedPlugCount = emitMedian(windowSize, timestamp, triggerTimestampMillis, historicalValues);
 
-		LOGGER.info("Number of plugs processed: {}", processedPlugCount);
-	}
-
-	private int calculateSlicesPerDay(int windowSize) {
-		if (windowSize <= 0) {
-			throw new IllegalArgumentException("Window size must be positive: " + windowSize);
+		if (persistenceCompleted) {
+			completionState.persistenceCompleted = true;
+		} else {
+			completionState.forecastCompleted = true;
 		}
 
-		return MINUTES_PER_DAY / windowSize;
+		if (!completionState.persistenceCompleted || !completionState.forecastCompleted) {
+			return;
+		}
+
+		completionStates.remove(completionKey);
+		processMedian(windowSize, timestamp);
+	}
+
+	private void processMedian(int windowSize, long timestamp) throws SQLException {
+		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
+		int sliceIndexInDay = calculateSliceIndexInDay(timestamp, windowSizeSeconds);
+
+		LOGGER.info("Updating median cache for slice {} and window {}m", sliceIndexInDay, windowSize);
+		int processedPlugCount = updateMedianCache(windowSize, sliceIndexInDay, timestamp);
+
+		LOGGER.info("Updated median cache for {} plugs", processedPlugCount);
 	}
 
 	private int calculateSliceIndexInDay(long timestamp, long windowSizeSeconds) {
 		return (int) Math.floorDiv(timestamp % (86400L), windowSizeSeconds);
 	}
 
-	private Map<PlugKey, List<Double>> loadHistoricalValues(int windowSize, int sliceIndexInDay, long latestHistoricalTimestamp) throws SQLException {
-		Map<PlugKey, List<Double>> historicalValues = new HashMap<>();
-		loadHistoricalValues(windowSize, sliceIndexInDay, latestHistoricalTimestamp, historicalValues);
-		return historicalValues;
-	}
-
-	private void loadHistoricalValues(int windowSize, int sliceIndexInDay, long latestHistoricalTimestamp, Map<PlugKey, List<Double>> historicalValues) throws SQLException {
+	private int updateMedianCache(int windowSize, int sliceIndexInDay, long timestamp) throws SQLException {
 		selectStatement.clearParameters();
 		selectStatement.setInt(1, windowSize);
 		selectStatement.setInt(2, sliceIndexInDay);
-		selectStatement.setLong(3, minimumDatasetTimestampSeconds);
-		selectStatement.setLong(4, latestHistoricalTimestamp);
 
-		try (ResultSet resultSet = selectStatement.executeQuery()) {
+		int updatedCount = 0;
+		try (ResultSet resultSet = selectStatement.executeQuery();
+			Jedis jedis = redisPool.getResource()) {
+			Pipeline pipeline = jedis.pipelined();
 			while (resultSet.next()) {
-				PlugKey key = new PlugKey(
+				String key = String.format(
+					"median:plug:%d:%d:%d:%d:%d",
+					windowSize,
+					sliceIndexInDay,
 					resultSet.getInt(1),
 					resultSet.getInt(2),
 					resultSet.getInt(3)
 				);
-
-				List<Double> values = historicalValues.computeIfAbsent(key, ignored -> new ArrayList<Double>());
-				values.add(resultSet.getDouble(4));
+				pipeline.set(key, Double.toString(resultSet.getDouble(4)));
+				updatedCount += 1;
 			}
+			pipeline.sync();
 		}
-	}
-
-	private int emitMedian(int windowSize, long timestamp, long triggerTimestampMillis, Map<PlugKey, List<Double>> historicalValues) {
-		int emittedCount = 0;
-
-		for (Map.Entry<PlugKey, List<Double>> entry : historicalValues.entrySet()) {
-			PlugKey plugKey = entry.getKey();
-			double archiveMedian = calculateMedian(entry.getValue());
-			emitMedian(windowSize, timestamp, triggerTimestampMillis, plugKey, archiveMedian);
-			emittedCount += 1;
-		}
-
-		LOGGER.info("Median emitted: {}", emittedCount);
-		return emittedCount;
-	}
-
-	private double calculateMedian(List<Double> values) {
-		if (values == null || values.isEmpty()) {
-			return 0.0d;
-		}
-
-		List<Double> sortedValues = new ArrayList<Double>(values);
-		Collections.sort(sortedValues);
-
-		int size = sortedValues.size();
-		int middleIndex = size / 2;
-
-		if ((size & 1) == 0) {
-			return (sortedValues.get(middleIndex - 1) + sortedValues.get(middleIndex)) / 2.0d;
-		}
-
-		return sortedValues.get(middleIndex);
-	}
-
-	private void emitMedian(int windowSize, long timestamp, long triggerTimestampMillis, PlugKey plugKey, double archiveMedian) {
-		collector.emit(
-			outputStreamId,
-			new Values(
-				windowSize,
-				timestamp,
-				triggerTimestampMillis,
-				plugKey.houseId,
-				plugKey.householdId,
-				plugKey.plugId,
-				archiveMedian
-			)
-		);
+		return updatedCount;
 	}
 
 	private void closeResources() {
@@ -241,22 +182,23 @@ public class Bolt_plugMedian extends BaseRichBolt {
 			if (connection != null) {
 				connection.close();
 			}
+			if (redisPool != null) {
+				redisPool.close();
+			}
 			LOGGER.info("Closed PostgreSQL connection successfully");
 		} catch (SQLException exception) {
 			LOGGER.warn("Failed to close PostgreSQL resources cleanly", exception);
 		}
 	}
 
-	private static final class PlugKey {
+	private static final class CompletionKey {
 
-		private final int houseId;
-		private final int householdId;
-		private final int plugId;
+		private final int windowSize;
+		private final long timestamp;
 
-		private PlugKey(int houseId, int householdId, int plugId) {
-			this.houseId = houseId;
-			this.householdId = householdId;
-			this.plugId = plugId;
+		private CompletionKey(int windowSize, long timestamp) {
+			this.windowSize = windowSize;
+			this.timestamp = timestamp;
 		}
 
 		@Override
@@ -264,18 +206,23 @@ public class Bolt_plugMedian extends BaseRichBolt {
 			if (this == other) {
 				return true;
 			}
-			if (!(other instanceof PlugKey)) {
+			if (!(other instanceof CompletionKey)) {
 				return false;
 			}
-			PlugKey plugKey = (PlugKey) other;
-			return houseId == plugKey.houseId
-				&& householdId == plugKey.householdId
-				&& plugId == plugKey.plugId;
+			CompletionKey key = (CompletionKey) other;
+			return windowSize == key.windowSize && timestamp == key.timestamp;
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(houseId, householdId, plugId);
+			return Objects.hash(windowSize, timestamp);
 		}
 	}
+
+	private static final class CompletionState {
+
+		private boolean persistenceCompleted;
+		private boolean forecastCompleted;
+	}
+
 }

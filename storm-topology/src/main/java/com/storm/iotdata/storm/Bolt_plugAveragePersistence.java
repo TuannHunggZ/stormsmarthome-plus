@@ -5,7 +5,9 @@ import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichBolt;
+import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
+import org.apache.storm.tuple.Values;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +27,7 @@ public class Bolt_plugAveragePersistence extends BaseRichBolt {
 	private final String inputAverageStreamId = "current-plug-average";
 	private final String inputFieldWindowSize = "windowSize";
 	private final String inputFieldTimestamp = "timestamp";
+	private final String outputCompletionStreamId = "plug-average-persisted";
 	private final String jdbcUrl;
 	private final String jdbcUser;
 	private final String jdbcPassword;
@@ -57,7 +60,7 @@ public class Bolt_plugAveragePersistence extends BaseRichBolt {
 			if (inputAverageStreamId.equals(input.getSourceStreamId())) {
 				addAverage(input);
 			} else if (isPunctuation(input)) {
-				flushBatch();
+				flushBatch(input);
 			}
 			collector.ack(input);
 		} catch (SQLException | RuntimeException exception) {
@@ -68,7 +71,10 @@ public class Bolt_plugAveragePersistence extends BaseRichBolt {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		// Sink bolt, no output streams.
+		declarer.declareStream(
+			outputCompletionStreamId,
+			new Fields(inputFieldWindowSize, inputFieldTimestamp)
+		);
 	}
 
 	@Override
@@ -112,7 +118,12 @@ public class Bolt_plugAveragePersistence extends BaseRichBolt {
 	}
 
 	private void flushBatch() throws SQLException {
+		flushBatch(null);
+	}
+
+	private void flushBatch(Tuple punctuation) throws SQLException {
 		if (batchCount == 0) {
+			emitCompletion(punctuation);
 			return;
 		}
 
@@ -121,6 +132,20 @@ public class Bolt_plugAveragePersistence extends BaseRichBolt {
 		statement.clearBatch();
 		LOGGER.info("Flushed {} plug average records", batchCount);
 		batchCount = 0;
+
+		emitCompletion(punctuation);
+	}
+
+	private void emitCompletion(Tuple punctuation) {
+		if (punctuation != null) {
+			collector.emit(
+				outputCompletionStreamId,
+				new Values(
+					punctuation.getIntegerByField(inputFieldWindowSize),
+					punctuation.getLongByField(inputFieldTimestamp)
+				)
+			);
+		}
 	}
 
 	private void rollbackTransaction(Exception exception) {

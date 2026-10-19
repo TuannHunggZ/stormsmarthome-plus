@@ -1,13 +1,15 @@
 package com.storm.iotdata.storm;
 
 import com.storm.iotdata.models.StormConfig;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.Pipeline;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
-import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichBolt;
-import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
-import org.apache.storm.tuple.Values;
+import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,10 +18,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -28,27 +27,22 @@ import java.util.Map;
 public class Bolt_houseMedian extends BaseRichBolt {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Bolt_houseMedian.class);
-	private static final int MINUTES_PER_DAY = 1440;
 	private static final long SECONDS_PER_MINUTE = 60L;
 
 	private final String inputFieldWindowSize;
 	private final String inputFieldTimestamp;
-	private final String inputFieldTriggerTimestampMillis;
 	private final String jdbcUrl;
 	private final String jdbcUser;
 	private final String jdbcPassword;
 	private final String selectSqlTemplate;
-	private final String inputStreamIdPrefix;
-	private final String outputStreamId;
-	private final String outputFieldWindowSize;
-	private final String outputFieldTimestamp;
-	private final String outputFieldHouseId;
-	private final String outputFieldArchiveMedian;
-	private final long minimumDatasetTimestampSeconds;
+	private final String inputPersistenceStreamId;
+	private final String inputForecastStreamId;
 
 	private transient OutputCollector collector;
 	private transient Connection connection;
 	private transient PreparedStatement selectStatement;
+	private transient JedisPool redisPool;
+	private final Map<CompletionKey, CompletionState> completionStates;
 
 	/**
 	 * Creates the bolt with configured SQL and field mappings.
@@ -58,31 +52,36 @@ public class Bolt_houseMedian extends BaseRichBolt {
 	public Bolt_houseMedian() {
 		this.inputFieldWindowSize = "windowSize";
 		this.inputFieldTimestamp = "timestamp";
-		this.inputFieldTriggerTimestampMillis = "triggerTimestampMillis";
 		this.jdbcUrl = StormConfig.getJdbcUrl();
 		this.jdbcUser = StormConfig.getJdbcUser();
 		this.jdbcPassword = StormConfig.getJdbcPassword();
 		this.selectSqlTemplate = StormConfig.getHouseMedianSelectSqlTemplate();
-		this.inputStreamIdPrefix = "punctuation-";
-		this.outputStreamId = "archive-house-median";
-		this.outputFieldWindowSize = "windowSize";
-		this.outputFieldTimestamp = "timestamp";
-		this.outputFieldHouseId = "houseId";
-		this.outputFieldArchiveMedian = "archiveMedian";
-		this.minimumDatasetTimestampSeconds = StormConfig.getMinimumDatasetTimestampSeconds();
+		this.inputPersistenceStreamId = "house-average-persisted";
+		this.inputForecastStreamId = "house-forecast-persisted";
+		this.completionStates = new HashMap<>();
 	}
 
 	@Override
 	public void prepare(Map<String, Object> stormConf, TopologyContext context, OutputCollector collector) {
 		this.collector = collector;
 		initializeDatabase();
+		redisPool = new JedisPool(
+			new JedisPoolConfig(),
+			StormConfig.getRedisHost(),
+			StormConfig.getRedisPort()
+		);
 	}
 
 	@Override
 	public void execute(Tuple input) {
 		try {
-			if (input.getSourceStreamId() != null && input.getSourceStreamId().startsWith(inputStreamIdPrefix)) {
-				processPunctuation(input);
+			String sourceStreamId = input.getSourceStreamId();
+			if (inputPersistenceStreamId.equals(sourceStreamId)) {
+				processCompletion(input, true);
+			} else if (inputForecastStreamId.equals(sourceStreamId)) {
+				processCompletion(input, false);
+			} else {
+				LOGGER.debug("Ignoring tuple from unexpected stream {}", sourceStreamId);
 			}
 			collector.ack(input);
 		} catch (SQLException exception) {
@@ -94,20 +93,12 @@ public class Bolt_houseMedian extends BaseRichBolt {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declareStream(
-            outputStreamId,
-            new Fields(
-                outputFieldWindowSize,
-                outputFieldTimestamp,
-				inputFieldTriggerTimestampMillis,
-                outputFieldHouseId,
-                outputFieldArchiveMedian
-            )
-        );
+		// Cache updater, no output streams.
 	}
 
 	@Override
 	public void cleanup() {
+		completionStates.clear();
 		closeResources();
 	}
 
@@ -121,109 +112,66 @@ public class Bolt_houseMedian extends BaseRichBolt {
 		}
 	}
 
-	private void processPunctuation(Tuple input) throws SQLException {
+	private void processCompletion(Tuple input, boolean persistenceCompleted) throws SQLException {
 		int windowSize = input.getIntegerByField(inputFieldWindowSize);
 		long timestamp = input.getLongByField(inputFieldTimestamp);
-		long triggerTimestampMillis = input.getLongByField(inputFieldTriggerTimestampMillis);
-		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
-		long forecastTimestamp = timestamp + (2L * windowSizeSeconds);
-		long dayStrideSeconds = calculateSlicesPerDay(windowSize) * windowSizeSeconds;
-		int sliceIndexInDay = calculateSliceIndexInDay(forecastTimestamp, windowSizeSeconds);
-
-		LOGGER.info("Forecast slice {} for window {}m", sliceIndexInDay, windowSize);
-
-		Map<Integer, List<Double>> historicalValues = loadHistoricalValues(
-			windowSize,
-			sliceIndexInDay,
-			forecastTimestamp - dayStrideSeconds
+		CompletionKey completionKey = new CompletionKey(windowSize, timestamp);
+		CompletionState completionState = completionStates.computeIfAbsent(
+			completionKey,
+			ignored -> new CompletionState()
 		);
-		int processedHouseCount = emitMedian(windowSize, timestamp, triggerTimestampMillis, historicalValues);
 
-		LOGGER.info("Number of houses processed: {}", processedHouseCount);
-	}
-
-	private int calculateSlicesPerDay(int windowSize) {
-		if (windowSize <= 0) {
-			throw new IllegalArgumentException("Window size must be positive: " + windowSize);
+		if (persistenceCompleted) {
+			completionState.persistenceCompleted = true;
+		} else {
+			completionState.forecastCompleted = true;
 		}
 
-		return MINUTES_PER_DAY / windowSize;
+		if (!completionState.persistenceCompleted || !completionState.forecastCompleted) {
+			return;
+		}
+
+		completionStates.remove(completionKey);
+		processMedian(windowSize, timestamp);
+	}
+
+	private void processMedian(int windowSize, long timestamp) throws SQLException {
+		long windowSizeSeconds = windowSize * SECONDS_PER_MINUTE;
+		int sliceIndexInDay = calculateSliceIndexInDay(timestamp, windowSizeSeconds);
+
+		LOGGER.info("Updating median cache for slice {} and window {}m", sliceIndexInDay, windowSize);
+		int processedHouseCount = updateMedianCache(windowSize, sliceIndexInDay, timestamp);
+
+		LOGGER.info("Updated median cache for {} houses", processedHouseCount);
 	}
 
 	private int calculateSliceIndexInDay(long timestamp, long windowSizeSeconds) {
 		return (int) Math.floorDiv(timestamp % (86400L), windowSizeSeconds);
 	}
 
-	private Map<Integer, List<Double>> loadHistoricalValues(int windowSize, int sliceIndexInDay, long latestHistoricalTimestamp) throws SQLException {
-		Map<Integer, List<Double>> historicalValues = new HashMap<>();
-		loadHistoricalValues(windowSize, sliceIndexInDay, latestHistoricalTimestamp, historicalValues);
-		return historicalValues;
-	}
-
-	private void loadHistoricalValues(int windowSize, int sliceIndexInDay, long latestHistoricalTimestamp, Map<Integer, List<Double>> historicalValues) throws SQLException {
+	private int updateMedianCache(int windowSize, int sliceIndexInDay, long timestamp) throws SQLException {
 		selectStatement.clearParameters();
 		selectStatement.setInt(1, windowSize);
 		selectStatement.setInt(2, sliceIndexInDay);
-		selectStatement.setLong(3, minimumDatasetTimestampSeconds);
-		selectStatement.setLong(4, latestHistoricalTimestamp);
 
-		try (ResultSet resultSet = selectStatement.executeQuery()) {
+		int updatedCount = 0;
+		try (ResultSet resultSet = selectStatement.executeQuery();
+			Jedis jedis = redisPool.getResource()) {
+			Pipeline pipeline = jedis.pipelined();
 			while (resultSet.next()) {
 				int houseId = resultSet.getInt(1);
-
-				List<Double> values = historicalValues.computeIfAbsent(
-					houseId,
-					ignored -> new ArrayList<>()
+				String key = String.format(
+					"median:house:%d:%d:%d",
+					windowSize,
+					sliceIndexInDay,
+					houseId
 				);
-
-				values.add(resultSet.getDouble(2));
+				pipeline.set(key, Double.toString(resultSet.getDouble(2)));
+				updatedCount += 1;
 			}
+			pipeline.sync();
 		}
-	}
-
-	private int emitMedian(int windowSize, long timestamp, long triggerTimestampMillis, Map<Integer, List<Double>> historicalValues) {
-		int emittedCount = 0;
-
-		for (Map.Entry<Integer, List<Double>> entry : historicalValues.entrySet()) {
-			int houseId = entry.getKey();
-			double archiveMedian = calculateMedian(entry.getValue());
-			emitMedian(windowSize, timestamp, triggerTimestampMillis, houseId, archiveMedian);
-			emittedCount += 1;
-		}
-
-		LOGGER.info("Median emitted: {}", emittedCount);
-		return emittedCount;
-	}
-
-	private double calculateMedian(List<Double> values) {
-		if (values == null || values.isEmpty()) {
-			return 0.0d;
-		}
-
-		List<Double> sortedValues = new ArrayList<Double>(values);
-		Collections.sort(sortedValues);
-
-		int size = sortedValues.size();
-		int middleIndex = size / 2;
-
-		if ((size & 1) == 0) {
-			return (sortedValues.get(middleIndex - 1) + sortedValues.get(middleIndex)) / 2.0d;
-		}
-
-		return sortedValues.get(middleIndex);
-	}
-
-	private void emitMedian(int windowSize, long timestamp, long triggerTimestampMillis, int houseId, double archiveMedian) {
-		collector.emit(
-			outputStreamId,
-			new Values(
-				windowSize,
-				timestamp,
-				triggerTimestampMillis,
-				houseId,
-				archiveMedian
-			)
-		);
+		return updatedCount;
 	}
 
 	private void closeResources() {
@@ -234,10 +182,47 @@ public class Bolt_houseMedian extends BaseRichBolt {
 			if (connection != null) {
 				connection.close();
 			}
+			if (redisPool != null) {
+				redisPool.close();
+			}
 			LOGGER.info("Closed PostgreSQL connection successfully");
 		} catch (SQLException exception) {
 			LOGGER.warn("Failed to close PostgreSQL resources cleanly", exception);
 		}
+	}
+
+	private static final class CompletionKey {
+
+		private final int windowSize;
+		private final long timestamp;
+
+		private CompletionKey(int windowSize, long timestamp) {
+			this.windowSize = windowSize;
+			this.timestamp = timestamp;
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			if (this == other) {
+				return true;
+			}
+			if (!(other instanceof CompletionKey)) {
+				return false;
+			}
+			CompletionKey key = (CompletionKey) other;
+			return windowSize == key.windowSize && timestamp == key.timestamp;
+		}
+
+		@Override
+		public int hashCode() {
+			return 31 * windowSize + Long.hashCode(timestamp);
+		}
+	}
+
+	private static final class CompletionState {
+
+		private boolean persistenceCompleted;
+		private boolean forecastCompleted;
 	}
 
 }
