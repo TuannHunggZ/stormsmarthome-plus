@@ -1,38 +1,47 @@
 # Storm Smart Home Plus
 
-Storm Smart Home Plus mô phỏng việc xử lý dữ liệu điện năng theo dataset DEBS 2014. Dữ liệu được replay từ CSV qua MQTT, xử lý bởi Apache Storm, lưu vào TimescaleDB, phát hiện bất thường qua Redis và hiển thị cảnh báo trên WebApp.
+Storm Smart Home Plus mô phỏng xử lý dữ liệu điện năng theo dataset DEBS 2014. Dữ liệu được replay từ CSV qua MQTT, xử lý bởi Apache Storm, lưu vào TimescaleDB, phát hiện bất thường qua Redis Pub/Sub và sử dụng Redis cache để phục vụ forecast.
 
 ## Kiến trúc
 
-Topology được khai báo trong `storm-topology/src/main/java/com/storm/iotdata/MainTopo.java`. Các cửa sổ thời gian hiện tại là `1`, `5`, `15`, `60` và `120` phút; trong sơ đồ dưới đây chúng được biểu diễn bằng một node đại diện.
+Topology được khai báo trong [MainTopo.java](storm-topology/src/main/java/com/storm/iotdata/MainTopo.java). Các window hiện tại là `1`, `5`, `15`, `60` và `120` phút. Mỗi window có một `Bolt_average` với parallelism `2`.
 
 ```mermaid
 flowchart LR
-    MQTT[(MQTT broker<br/>iot-data)] --> S[Spout_data]
+    MQTT[(MQTT broker<br/>topic: iot-data)] --> S[Spout_data]
 
     subgraph STORM[Apache Storm topology: iot-smarthome]
-        S -->|data| A[Bolt_average]
-        S -.->|punctuation| A
+    S -->|data| A[Bolt_average]
+    S -.->|punctuation| A
 
-        A -->|current-plug-average<br/>current-house-average| P[Bolt_averagePersistence]
-        A -->|current-plug-average| PA[Bolt_plugAnomalyDetection]
-        A -->|current-house-average| HA[Bolt_houseAnomalyDetection]
+    A -->|current-plug-average<br/>current-house-average| P[Bolt_averagePersistence]
+    A -.->|punctuation| P
+    A -->|current-plug-average| PA[Bolt_plugAnomalyDetection]
+    A -->|current-house-average| HA[Bolt_houseAnomalyDetection]
 
-        S -.->|punctuation| PM[Bolt_plugMedian]
-        S -.->|punctuation| HM[Bolt_houseMedian]
+    A -->|current-plug-average| PF[Bolt_plugForecast]
+    A -->|current-house-average| HF[Bolt_houseForecast]
+    A -.->|punctuation| PF
+    A -.->|punctuation| HF
 
-        A -->|current-plug-average| PF[Bolt_plugForecast]
-        PM -->|archive-plug-median| PF
-        A -->|current-house-average| HF[Bolt_houseForecast]
-        HM -->|archive-house-median| HF
+    P -.->|average-persisted| PM[Bolt_plugMedian]
+    PF -.->|forecast-persisted| PM
+    P -.->|average-persisted| HM[Bolt_houseMedian]
+    HF -.->|forecast-persisted| HM
     end
 
-    DB[(TimescaleDB<br/>iotdata)]
-    P -->|plug_average<br/>house_average| DB
-    DB -->|historical averages| PM
-    DB -->|historical averages| HM
-    PF -->|plug_forecast| DB
-    HF -->|house_forecast| DB
+    DB[(TimescaleDB<br/>database: iotdata)]
+  P -->|plug_average<br/>house_average| DB
+    PF -->|batch INSERT| DB
+    HF -->|batch INSERT| DB
+
+    DB -->|SELECT plug_average| PM
+    DB -->|SELECT house_average| HM
+  PM -->|median cache| RC[(Redis)]
+  HM -->|median cache| RC
+
+  RC -.->|GET median| PF
+  RC -.->|GET median| HF
 
     PA -->|anomaly:plug| R[(Redis Pub/Sub)]
     HA -->|anomaly:house| R
@@ -42,12 +51,12 @@ flowchart LR
 
 ### Luồng xử lý
 
-1. `Spout_data` subscribe topic MQTT `iot-data`, lọc các bản ghi điện năng (`property = 1`) và phát stream `data` cùng các punctuation.
-2. `Bolt_average` tính average hiện tại theo plug và house, sau đó phát `current-plug-average` và `current-house-average`.
-3. `Bolt_averagePersistence` ghi các average vào `plug_average` và `house_average`.
-4. `Bolt_plugMedian` và `Bolt_houseMedian` đọc dữ liệu lịch sử để tạo median archive.
-5. Các bolt forecast kết hợp average hiện tại với median lịch sử, tính forecast và ghi vào `plug_forecast` hoặc `house_forecast`.
-6. Các bolt anomaly duy trì thống kê rolling, kiểm tra ngưỡng `20%` và publish cảnh báo lên Redis. WebApp chuyển cảnh báo từ Redis đến trình duyệt qua WebSocket.
+1. `Spout_data` subscribe MQTT topic `iot-data`, lọc bản ghi có `property = 1`, phát `data` và punctuation cho các window.
+2. Mỗi `Bolt_average` gom dữ liệu theo `houseId`, tính plug/house average khi nhận punctuation, rồi phát `current-plug-average` và `current-house-average`.
+3. `Bolt_plugAveragePersistence` và `Bolt_houseAveragePersistence` nhận average, ghi batch vào `plug_average`/`house_average`, rồi phát completion stream sau khi commit.
+4. `Bolt_plugForecast` và `Bolt_houseForecast` nhận average, lấy median tương ứng từ Redis, tính forecast và ghi batch khi nhận punctuation từ `Bolt_average`. Sau khi commit, mỗi bolt phát completion stream.
+5. Mỗi median bolt chờ đủ hai completion tương ứng: average persistence và forecast persistence. Sau đó query median theo `window_size`, `slice_index_in_day` và timestamp punctuation, rồi cập nhật toàn bộ kết quả vào Redis bằng pipeline.
+6. Anomaly bolts duy trì rolling statistics, kiểm tra ngưỡng `20%` và publish cảnh báo lên Redis Pub/Sub. WebApp chuyển cảnh báo đến browser qua WebSocket.
 
 ## Cấu trúc chính
 
@@ -57,36 +66,38 @@ flowchart LR
 - `timescaledb/`: schema, dữ liệu mẫu và database dump.
 - `storm-config/`: cấu hình Storm và ZooKeeper.
 - `storm-topology/`: source code topology Apache Storm.
+- `redis/`: Redis median cache-loader.
 - `storm-exporter/`, `prometheus/`, `grafana/`: monitoring.
-- `webapp/`: giao diện và WebSocket server nhận anomaly.
+- `webapp/`: WebSocket server và giao diện nhận anomaly.
 
 ## Yêu cầu
 
 - Docker và Docker Compose.
-- JDK 8 trở lên, Maven.
+- JDK 8 trở lên và Maven.
 - Node.js và npm nếu muốn replay dữ liệu bằng `mqtt-publisher`.
 
 ## Chạy hệ thống
 
-### 1. Build topology và exporter
+### 1. Build topology và các image cần thiết
 
 ```bash
 cd storm-topology
 mvn install
 cd ..
+
 docker build -t stormexporter:v1 ./storm-exporter
 docker build -t webapp:v1 ./webapp
 docker build -t redis-cache-loader:v1 ./redis-cache-loader
 ```
 
-### 2. Khởi động các dịch vụ
+### 2. Khởi động hệ thống
 
 ```bash
 docker compose up -d
 docker compose ps
 ```
 
-Compose sử dụng database `iotdata` trong TimescaleDB với tài khoản mặc định `postgres`/`postgres` và khởi tạo từ `timescaledb/dump/iotdata.dump`.
+TimescaleDB dùng database `iotdata` với tài khoản mặc định `postgres`/`postgres` và được khởi tạo từ `timescaledb/dump/iotdata.dump`.
 
 ### 3. Submit topology
 
@@ -96,7 +107,11 @@ docker exec nimbus storm jar \
   com.storm.iotdata.MainTopo
 ```
 
-Topology có tên `iot-smarthome`. Storm UI chạy tại <http://localhost:8080>, Grafana tại <http://localhost:3000> và WebApp tại <http://localhost:3001>.
+Topology có tên `iot-smarthome`. Các địa chỉ chính:
+
+- Storm UI: <http://localhost:8080>
+- Grafana: <http://localhost:3000>
+- WebApp: <http://localhost:3001>
 
 ### 4. Replay dữ liệu
 
@@ -104,18 +119,19 @@ Topology có tên `iot-smarthome`. Storm UI chạy tại <http://localhost:8080>
 cd mqtt-publisher
 npm install
 node src/main.js --broker localhost --port 1883 \
-  --file data-file/house-0.csv --topic iot-data
+  --file ../data-preprocess/data-file/house-0-9_full_day-4.csv --topic iot-data
 ```
 
-Có thể xem thêm các tùy chọn như `--speed-factor`, `--use-current-time`, `--qos` và `--retain` trong [mqtt-publisher/README.md](mqtt-publisher/README.md).
+Các tùy chọn replay gồm `--speed-factor`, `--use-current-time`, `--qos` và `--retain`. Xem thêm [mqtt-publisher/README.md](mqtt-publisher/README.md).
 
 ## Cấu hình chính
 
-Các cấu hình của topology hiện được khai báo trực tiếp trong `StormConfig.java`:
+Các cấu hình topology nằm trong `StormConfig.java`:
 
 - MQTT: `tcp://mqtt-broker:1883`, topic `iot-data`.
 - TimescaleDB: `jdbc:postgresql://timescaledb:5432/iotdata`.
-- Redis: `redis:6379`, channels `anomaly:plug` và `anomaly:house`.
+- Redis: host `redis`, port `6379`.
+- Redis anomaly channels: `anomaly:plug`, `anomaly:house`.
 - Window sizes: `1`, `5`, `15`, `60`, `120` phút.
 - Anomaly threshold: `20%`.
 
