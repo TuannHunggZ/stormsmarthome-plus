@@ -14,10 +14,10 @@ CREATE TABLE plug_average (
     PRIMARY KEY (
         window_size,
         slice_index_in_day,
-        timestamp,
         house_id,
         household_id,
-        plug_id
+        plug_id,
+        timestamp
     )
 );
 
@@ -35,8 +35,8 @@ CREATE TABLE house_average (
     PRIMARY KEY (
         window_size,
         slice_index_in_day,
-        timestamp,
-        house_id
+        house_id,
+        timestamp
     )
 );
 
@@ -94,10 +94,10 @@ CREATE TABLE plug_average_expected (
 
     PRIMARY KEY (
         window_size,
-        timestamp,
         house_id,
         household_id,
-        plug_id
+        plug_id,
+        timestamp
     )
 );
 
@@ -113,8 +113,8 @@ CREATE TABLE house_average_expected (
 
     PRIMARY KEY (
         window_size,
-        timestamp,
-        house_id
+        house_id,
+        timestamp
     )
 );
 
